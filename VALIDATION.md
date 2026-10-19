@@ -1,12 +1,14 @@
-# Prüfstand · Einnahmen und wiederkehrende Fixkosten
+# Prüfstand · Version 0.2.2
 
-Geplant: Versionsserie 0.2. GitHub-Build steht für diese Änderung noch aus.
+GitHub-Actions-Lauf: https://github.com/redshoxx/Mein-Spielraum/actions/runs/39264624579
+Quellcommit: e1c8c34bc7edd66a83a71f2b3b251c152393a538
+Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.2.2
+Datum: 19.10.2026
 
-## Tests
-- Bisherige 5 Budgettests bleiben bestehen.
-- 10 zusätzliche Swift-Tests für Monatsende, Vierteljahr, Schaltjahr, zukünftige Einnahmen, Doppelbuchungsschutz, Fixkosten ohne Doppelabzug, überfällige Termine, Datenmigration und Bearbeiten mit Historie.
-- Python-Source-Generator: 3 Tests lokal bestanden.
-- Neue Swift-Tests und Xcode-Gerätebuild laufen im GitHub-Workflow vor einer Veröffentlichung.
+- 15 Swift-Rechenkern-Tests bestanden: bisherige 5 Budgettests und 10 Tests für Monatsende, Vierteljahr, Schaltjahr, zukünftige Einnahmen, Doppelbuchungsschutz, Fixkosten ohne Doppelabzug, überfällige Termine, Datenmigration und Bearbeiten mit Historie.
+- Python Source-Generator: 3 Tests bestanden.
+- Xcode-Gerätebuild erfolgreich; IPA-Metadaten geprüft.
+- IPA (1.997.376 Bytes), SideStore-Source, Icon und Prüfsumme veröffentlicht.
 - Native Bildschirm-/Bedienprüfung auf echtem iPhone bleibt ausstehend.
 
 ## Datenübernahme
