@@ -1,8 +1,9 @@
-## Fixkosten mit letzter Zahlung und eigener Haushaltsbereich
+## Nächste Fixkosten direkt in der Übersicht
 
-- Fixkosten können jetzt ein optionales Enddatum erhalten: „Letzte Zahlung festlegen“ aktivieren und das Datum wählen. Reguläre Fälligkeiten bis einschließlich dieses Tages werden berücksichtigt. Danach entstehen keine weiteren Termine oder Reserven.
-- Bereits offene letzte Zahlungen bleiben bis zum Bezahlen reserviert. Abgeschlossene Posten bleiben mit ihrem Verlauf erhalten. Ohne Enddatum läuft ein Posten wie bisher weiter.
-- Haushalt ist ein eigener Bereich und wird ausschließlich über das Zahnrad oben rechts in der Übersicht geöffnet. Unten bleiben Übersicht und Spartöpfe; ein Zurück-Pfeil führt aus dem Haushalt zur Übersicht.
-- Bearbeiten erhält den ursprünglichen Monatsende-/Schaltjahr-Anker, wenn Fälligkeit und Rhythmus unverändert bleiben.
+- Neuer Bereich „Nächste Fixkosten“ mit Name, Betrag und genauem Fälligkeitsdatum.
+- Klare Tagesangaben: heute, morgen, in X Tagen oder X Tage überfällig. Überfällige und heute fällige Zahlungen werden hervorgehoben.
+- Nach Fälligkeit sortiert, je Fixkostenposten der nächste offene Termin. Zunächst vier Posten sichtbar, weitere über „Alle anzeigen“.
+- Gebuchte Zahlungen zeigen den Folgetermin; abgeschlossene Posten werden ausgeblendet. Offene Schlusszahlungen bleiben sichtbar.
+- Haushalt und Einstellungen bleiben über das Zahnrad oben rechts erreichbar.
 
-**Update:** In SideStore über die vorhandene Source aktualisieren. Die App nicht löschen; bestehende Daten bleiben erhalten.
+**Update:** Über die bestehende SideStore-Source aktualisieren. Daten und bisherige Einträge bleiben erhalten.

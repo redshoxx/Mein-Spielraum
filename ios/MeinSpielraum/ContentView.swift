@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var importBackup = false
     @State private var pendingImport: Budget?
     @State private var exported: URL?
+    @State private var showAllUpcoming = false
     @State private var pendingPayment: RecurringPayment?
     @State private var removingPayment: RecurringPayment?
     private let dayTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
@@ -131,10 +132,44 @@ struct ContentView: View {
             Divider()
             HStack { Text("Frei verfügbar"); Spacer(); Text(Euro.format(store.budget.available)) }.font(.subheadline.weight(.semibold)).padding(.vertical, 14)
             Divider()
+            upcomingPayments
             Text("Spartöpfe").font(.system(size: 23, weight: .bold)).padding(.top, 23).padding(.bottom, 20)
             potRows
             Text("Wochenlimit: \(Euro.format(store.budget.weeklyLimit)). Maximal das frei verfügbare Geld.").font(.caption).foregroundStyle(secondary).padding(.top, 20)
         }
+    }
+    private var upcomingPayments: some View {
+        let items = store.budget.upcomingFixedPayments(now: now, calendar: calendar)
+        let visible = showAllUpcoming ? items : Array(items.prefix(4))
+        return VStack(alignment: .leading, spacing: 17) {
+            Text("Nächste Fixkosten").font(.system(size: 23, weight: .bold))
+            if items.isEmpty {
+                Text("Keine offenen Zahlungstermine. Fixkosten legst du über das Zahnrad im Haushalt an.").font(.subheadline).foregroundStyle(secondary)
+            } else {
+                Text("Je Posten der nächste offene Termin").font(.caption).foregroundStyle(secondary)
+                ForEach(visible) { item in upcomingRow(item) }
+                if items.count > 4 {
+                    Button(showAllUpcoming ? "Weniger anzeigen" : "Alle \(items.count) anzeigen") { showAllUpcoming.toggle() }.font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+                }
+                Text("Bearbeiten und als bezahlt buchen: Zahnrad → Haushalt.").font(.caption).foregroundStyle(secondary)
+            }
+        }.padding(.vertical, 23).frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+    private func upcomingRow(_ item: UpcomingPayment) -> some View {
+        let urgent = item.daysUntilDue <= 0
+        return HStack(alignment: .top, spacing: 14) {
+            Image(systemName: urgent ? "exclamationmark.circle" : "calendar").font(.system(size: 20)).foregroundStyle(urgent ? Color.orange : mint).frame(width: 25).padding(.top, 2).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(item.payment.name).fontWeight(.semibold).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Text(Euro.format(item.payment.cents)).fontWeight(.semibold).monospacedDigit().fixedSize()
+                }
+                Text(item.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).year())).font(.subheadline).foregroundStyle(secondary)
+                Text(item.timingLabel).font(.caption.weight(.semibold)).foregroundStyle(urgent ? Color.orange : mint)
+            }
+        }.padding(.vertical, 5).accessibilityElement(children: .combine)
     }
     private func ledger(_ title: String, _ amount: Int) -> some View {
         HStack { Text(title).foregroundStyle(secondary); Spacer(); Text(Euro.format(amount)).monospacedDigit() }.font(.body)
