@@ -1,0 +1,89 @@
+name: iPhone Build & SideStore
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate core and source generator
+        run: |
+          swift test
+          python3 scripts/test_source.py
+      - name: Set version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix=$(cat VERSION)
+          [[ "$prefix" =~ ^[0-9]+\.[0-9]+$ ]]
+          echo "value=${prefix}.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+      - name: Generate Xcode project
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate
+      - name: Build for iPhone (SideStore signs at installation)
+        env:
+          APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          xcodebuild -project MeinSpielraum.xcodeproj -scheme MeinSpielraum \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build
+      - name: Package and validate IPA
+        env:
+          APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          mkdir -p output/Payload
+          ditto build/Build/Products/Release-iphoneos/MeinSpielraum.app output/Payload/MeinSpielraum.app
+          (cd output && /usr/bin/zip -qry Mein-Spielraum.ipa Payload)
+          cp ios/MeinSpielraum/Assets.xcassets/AppIcon.appiconset/icon.png output/icon.png
+          python3 scripts/make_source.py --ipa output/Mein-Spielraum.ipa \
+            --repository "$GITHUB_REPOSITORY" --version "$APP_VERSION" --output output/source.json
+          shasum -a 256 output/Mein-Spielraum.ipa > output/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mein-Spielraum-iPhone-${{ steps.version.outputs.value }}
+          path: |
+            output/Mein-Spielraum.ipa
+            output/source.json
+            output/icon.png
+            output/SHA256SUMS.txt
+          retention-days: 14
+      - name: Publish release and updated SideStore source
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          tag="v${APP_VERSION}"
+          if gh release view "$tag" --json isDraft --jq .isDraft > output/release-state.txt 2>/dev/null; then
+            if [ "$(cat output/release-state.txt)" != 'true' ]; then
+              echo 'Release is already published; preserving the existing build.'
+              exit 0
+            fi
+          else
+            gh release create "$tag" --target "$GITHUB_SHA" --draft \
+              --title "Mein Spielraum ${APP_VERSION}" --notes-file RELEASE-NOTES.md
+          fi
+          gh release upload "$tag" output/Mein-Spielraum.ipa output/source.json output/icon.png output/SHA256SUMS.txt --clobber
+          gh release edit "$tag" --draft=false --latest
+          printf 'SideStore-Source: https://github.com/%s/releases/latest/download/source.json\n' "$GITHUB_REPOSITORY" >> "$GITHUB_STEP_SUMMARY"
