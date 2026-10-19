@@ -147,7 +147,7 @@ struct AssistantView: View {
                     Text("\(expense.title) · \(Euro.format(expense.cents))").fontWeight(.semibold)
                     if let merchant = expense.merchant, !merchant.isEmpty { Text(merchant).font(.caption).foregroundStyle(.secondary) }
                     Picker("Einordnung", selection: Binding<ExpensePurpose?>(get: { expense.purpose }, set: { purpose in
-                        if let purpose { apply { $0.labelExpense(id: expense.id, purpose: purpose) } }
+                        apply { $0.labelExpense(id: expense.id, purpose: purpose) }
                     })) {
                         Text("Noch offen").tag(Optional<ExpensePurpose>.none)
                         ForEach(ExpensePurpose.allCases) { Text($0.title).tag(Optional($0)) }

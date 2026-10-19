@@ -130,7 +130,7 @@ extension Budget {
         a.explanation = learned > 0 ? "Aus deinen markierten Ausgaben gelernt; dein eigener Mindestbetrag und dein Wochenlimit bleiben bestehen." : "Noch wenig Lerndaten: Es gelten deine eigenen Planwerte. Für eine Ausgabenprognose werden mindestens 3 vollständige Wochen und 8 notwendige Ausgaben benötigt."
         return a
     }
-    public mutating func labelExpense(id: UUID, purpose: ExpensePurpose) {
+    public mutating func labelExpense(id: UUID, purpose: ExpensePurpose?) {
         guard let i = expenses.firstIndex(where: { $0.id == id }) else { return }
         expenses[i].purpose = purpose
     }

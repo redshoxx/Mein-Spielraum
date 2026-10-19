@@ -124,4 +124,14 @@ final class AssistantTests: XCTestCase {
         let copy = try JSONDecoder().decode(Budget.self, from: JSONEncoder().encode(migrated)).validated()
         XCTAssertEqual(copy, migrated)
     }
+    func testRemovingFeedbackStopsUsingThatTrainingExample() throws {
+        var b = configured()
+        for _ in 0..<3 { try b.addExpense(cents: 100, title: "Test", category: "Freizeit", merchant: "Shop", purpose: .wish) }
+        XCTAssertNotNil(b.necessityEstimate(merchant: "Shop", category: "Freizeit"))
+        let balance = b.balance
+        b.labelExpense(id: b.expenses[0].id, purpose: nil)
+        XCTAssertNil(b.expenses[0].purpose)
+        XCTAssertNil(b.necessityEstimate(merchant: "Shop", category: "Freizeit"))
+        XCTAssertEqual(b.balance, balance)
+    }
 }
