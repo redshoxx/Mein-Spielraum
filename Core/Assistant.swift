@@ -6,6 +6,8 @@ public enum ExpensePurpose: String, Codable, CaseIterable, Identifiable {
     public var title: String { switch self { case .necessary: return "Notwendig"; case .wish: return "Wunsch"; case .emergency: return "Notfall" } }
 }
 public struct AssistantSettings: Codable, Equatable {
+    public var automatic: Bool? = nil
+    public var usesAutomatic: Bool { automatic != false }
     public var configured = false
     public var essentialWeekly = 0
     public var safetyBuffer = 0
@@ -51,7 +53,7 @@ public struct BudgetAssessment {
     public var purchaseLimit = 0
     public var additionalSavingsSuggestion = 0
     public var ready = false
-    public var explanation = "Bitte zuerst deinen Plan einrichten."
+    public var explanation = "Noch keine ausreichenden Daten vorhanden."
 }
 
 extension Budget {
@@ -74,13 +76,26 @@ extension Budget {
     }
     public func assessment(now: Date = Date(), calendar: Calendar = .current) -> BudgetAssessment {
         var a = BudgetAssessment()
-        guard assistant.configured else { return a }
+        let automatic = assistant.usesAutomatic
+        guard automatic || assistant.configured else { return a }
         a.buffer = assistant.safetyBuffer; a.extraSavings = assistant.extraSavings
         let today = calendar.startOfDay(for: now)
         let manual = assistant.nextPayday.map { calendar.startOfDay(for: $0) }
         let scheduled = payments.filter { $0.kind == .income && $0.hasPendingOccurrence(calendar: calendar) }
             .map { calendar.startOfDay(for: $0.nextDue(calendar: calendar)) }.filter { $0 > today }.min()
-        guard let payday = manual ?? scheduled,
+        // Advance only the forecast date, never book or invent an income.
+        let automaticPayday = payments.filter { $0.kind == .income }.compactMap { p -> Date? in
+            var index = p.completed
+            while index < 12_000 && p.includesOccurrence(index, calendar: calendar) {
+                let date = calendar.startOfDay(for: p.dueDate(at: index, calendar: calendar))
+                if date > today { return date }
+                index += 1
+            }
+            return nil
+        }.min()
+        let fallback = calendar.date(byAdding: .day, value: 30, to: today)!
+        let horizon = automatic ? (automaticPayday ?? fallback) : (manual ?? scheduled)
+        guard let payday = horizon,
               let days = calendar.dateComponents([.day], from: today, to: payday).day, days > 0, days <= 62 else {
             a.explanation = "Bitte den nächsten Gehaltstag prüfen. Überfälliges Gehalt zählt nicht als Guthaben."
             return a
@@ -92,7 +107,10 @@ extension Budget {
         let observedWeeks = earliest.flatMap { iso.dateInterval(of: .weekOfYear, for: $0) }.flatMap { iso.dateComponents([.weekOfYear], from: $0.end, to: weekStart).weekOfYear } ?? 0
         let weeks = max(0, min(8, observedWeeks))
         let start = iso.date(byAdding: .weekOfYear, value: -weeks, to: weekStart) ?? weekStart
-        let necessary = expenses.filter { $0.purpose == .necessary && $0.date >= start && $0.date < weekStart }
+        let necessary = expenses.filter {
+            let protect = $0.purpose == .necessary || (automatic && $0.purpose == nil && $0.fundingPotID == nil)
+            return protect && $0.date >= start && $0.date < weekStart
+        }
         a.learnedSamples = necessary.count
         a.learnedWeeks = weeks
         var learned = 0
@@ -107,7 +125,8 @@ extension Budget {
             learned = sorted[min(sorted.count - 1, Int(ceil(Double(sorted.count) * 0.8)) - 1)]
         }
         // Learning may raise the protective essential reserve, never silently lower the user's baseline.
-        a.essentialWeekly = max(assistant.essentialWeekly, learned)
+        a.essentialWeekly = max(assistant.essentialWeekly, automatic && learned == 0 ? weeklyLimit : learned)
+        if automatic { a.buffer = max(a.buffer, a.essentialWeekly) }
         a.essentialReserve = Int(ceil(Double(a.essentialWeekly) * Double(days) / 7))
         var untilPayday = fixedCosts
         for p in payments where p.kind == .fixedCost {
@@ -128,6 +147,13 @@ extension Budget {
         a.additionalSavingsSuggestion = max(0, afterProtection - weeklyLimit * Int(ceil(Double(days) / 7)))
         a.ready = true
         a.explanation = learned > 0 ? "Aus deinen markierten Ausgaben gelernt; dein eigener Mindestbetrag und dein Wochenlimit bleiben bestehen." : "Noch wenig Lerndaten: Es gelten deine eigenen Planwerte. Für eine Ausgabenprognose werden mindestens 3 vollständige Wochen und 8 notwendige Ausgaben benötigt."
+        if automatic {
+            a.explanation = learned > 0
+                ? "Automatisch aus eingetragenen Ausgaben geschätzt. Unmarkierte Ausgaben werden vorsichtshalber als Alltag geschützt; Rückmeldungen sind optional."
+                : "Automatischer Start: Noch keine belastbare Historie. Dein Wochenlimit wird vorläufig vollständig für Alltag geschützt, zusätzlich eine Woche als Puffer. Mit mindestens 3 vollständigen Wochen und 8 Ausgaben passt sich die Schätzung an."
+            if automaticPayday == nil { a.explanation += " Kein künftiger Einnahmetermin vorhanden: vorläufige Planung für 30 Tage, kein erkannter Gehaltstag." }
+            else { a.explanation += " Planung bis zum nächsten Einnahmetermin; künftiges Einkommen zählt nicht zum Guthaben." }
+        }
         return a
     }
     public mutating func labelExpense(id: UUID, purpose: ExpensePurpose?) {

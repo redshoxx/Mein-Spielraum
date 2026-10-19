@@ -6,6 +6,7 @@ final class AssistantTests: XCTestCase {
     private func day(_ y: Int, _ m: Int, _ d: Int) -> Date { calendar.date(from: DateComponents(year: y, month: m, day: d, hour: 12))! }
     private func configured() -> Budget {
         var b = Budget.demo()
+        b.assistant.automatic = false
         b.assistant.configured = true
         b.assistant.essentialWeekly = 7000
         b.assistant.safetyBuffer = 5000
@@ -14,7 +15,8 @@ final class AssistantTests: XCTestCase {
         return b
     }
     func testNoPlanOrExpiredPaydayNeverProducesPurchasePermission() {
-        XCTAssertFalse(Budget.demo().assessment(now: day(19), calendar: calendar).ready)
+        var manual = Budget.demo(); manual.assistant.automatic = false
+        XCTAssertFalse(manual.assessment(now: day(19), calendar: calendar).ready)
         var b = configured(); b.assistant.nextPayday = day(19)
         XCTAssertFalse(b.assessment(now: day(19), calendar: calendar).ready)
         XCTAssertEqual(b.assessment(now: day(19), calendar: calendar).purchaseLimit, 0)

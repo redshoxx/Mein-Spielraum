@@ -28,7 +28,7 @@ struct ContentView: View {
     private var calendar: Calendar { var c = Calendar(identifier: .iso8601); c.timeZone = .current; return c }
     private var dashboardAnalysis: BudgetAssessment { store.budget.assessment(now: now) }
     private var dashboardAmount: Int {
-        store.budget.assistant.configured ? dashboardAnalysis.purchaseLimit : store.budget.weeklyRemaining(now: now, calendar: calendar)
+        (store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? dashboardAnalysis.purchaseLimit : store.budget.weeklyRemaining(now: now, calendar: calendar)
     }
     private var weekLabel: String {
         guard let range = calendar.dateInterval(of: .weekOfYear, for: now), let end = calendar.date(byAdding: .day, value: 6, to: range.start) else { return "Diese Woche" }
@@ -124,13 +124,13 @@ struct ContentView: View {
     private var overview: some View {
         VStack(alignment: .leading, spacing: 0) {
             Label(weekLabel, systemImage: "calendar").font(.subheadline).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 12).padding(.vertical, 9).background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15)))
-            Text(store.budget.assistant.configured ? "Richtwert für freie Wünsche" : "Diese Woche verfügbar").font(.system(size: 21, weight: .semibold)).padding(.top, 25)
+            Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Richtwert für freie Wünsche" : "Diese Woche verfügbar").font(.system(size: 21, weight: .semibold)).padding(.top, 25)
             Text(Euro.format(dashboardAmount)).font(.system(size: 65, weight: .bold)).tracking(-2).minimumScaleFactor(0.6).lineLimit(1).foregroundStyle(dashboardAmount < 0 ? Color.red : mint).padding(.top, 3).padding(.bottom, 20)
-            if store.budget.assistant.configured {
+            if store.budget.assistant.usesAutomatic || store.budget.assistant.configured {
                 Text(dashboardAnalysis.ready ? "Nach Alltag, Sparplan und Puffer. Schätzung aus deinen Einträgen." : "Bitte Gehaltstag und Plan im Assistenten prüfen.").font(.caption).foregroundStyle(secondary).padding(.bottom, 15)
             }
             Divider().overlay(Color.white.opacity(0.12))
-            Text(store.budget.assistant.configured ? "Vor Alltags- und Sparplan" : "Frei verfügbar").foregroundStyle(secondary).padding(.top, 20)
+            Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Vor Alltags- und Sparplan" : "Frei verfügbar").foregroundStyle(secondary).padding(.top, 20)
             Text(Euro.format(store.budget.available)).font(.system(size: 37, weight: .bold)).tracking(-1).padding(.top, 3)
             VStack(spacing: 13) {
                 ledger("Kontostand", store.budget.balance)
@@ -138,14 +138,14 @@ struct ContentView: View {
                 ledger("Sparreserve", -store.budget.reserved)
             }.padding(.top, 22).padding(.bottom, 15)
             Divider()
-            HStack { Text(store.budget.assistant.configured ? "Vor Alltags- und Sparplan" : "Frei verfügbar"); Spacer(); Text(Euro.format(store.budget.available)) }.font(.subheadline.weight(.semibold)).padding(.vertical, 14)
+            HStack { Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Vor Alltags- und Sparplan" : "Frei verfügbar"); Spacer(); Text(Euro.format(store.budget.available)) }.font(.subheadline.weight(.semibold)).padding(.vertical, 14)
             Divider()
             Button { editor = .assistant } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "brain.head.profile").font(.title2)
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Lernender Budget-Assistent").fontWeight(.semibold)
-                        Text(store.budget.assistant.configured ? "Kaufcheck, Plan und deine Rückmeldungen" : "Plan einrichten und aus Ausgaben lernen").font(.caption).foregroundStyle(secondary)
+                        Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Automatische Übersicht und Kaufcheck" : "Automatisch aus deinen Einträgen lernen").font(.caption).foregroundStyle(secondary)
                     }
                     Spacer(minLength: 0); Image(systemName: "chevron.right")
                 }.padding(.vertical, 20)

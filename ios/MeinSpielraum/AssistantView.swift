@@ -22,16 +22,16 @@ struct AssistantView: View {
     var body: some View {
         NavigationStack {
             List {
-                Picker("Bereich", selection: $tab) { Text("Mein Plan").tag(0); Text("Kaufcheck").tag(1); Text("Lernen").tag(2) }.pickerStyle(.segmented)
+                Picker("Bereich", selection: $tab) { Text("Überblick").tag(0); Text("Kaufcheck").tag(1); Text("Lernen").tag(2) }.pickerStyle(.segmented)
                 if tab == 0 { planSections }
                 else if tab == 1 { purchaseSections }
                 else { learningSections }
-                Section { Text("Lokal lernender Algorithmus, kein Chatbot. Er nutzt ausschließlich deine Einträge und Markierungen. Keine Verbindung zu George, keine Banksperre und keine automatischen Überweisungen. Prognosen sind Schätzungen.").font(.caption).foregroundStyle(.secondary) }
+                Section { Text("Lokal lernender Algorithmus, kein Chatbot. Er startet ohne Plan und nutzt deine Einträge. Rückmeldungen sind optional. Keine Verbindung zu George, keine Banksperre und keine automatischen Überweisungen. Prognosen sind Schätzungen.").font(.caption).foregroundStyle(.secondary) }
             }
             .navigationTitle("Budget-Assistent").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) { Button { settingsOpen = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Assistent einrichten") }
+                ToolbarItem(placement: .primaryAction) { Button { settingsOpen = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Assistent anpassen") }
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } }
             }
             .sheet(isPresented: $settingsOpen) { AssistantSettingsView().environmentObject(store) }
@@ -40,7 +40,7 @@ struct AssistantView: View {
         }.tint(assistMint).preferredColorScheme(.dark)
     }
     @ViewBuilder private var planSections: some View {
-        if !store.budget.assistant.configured {
+        if !store.budget.assistant.usesAutomatic && !store.budget.assistant.configured {
             Section("Zuerst dein Plan") {
                 Text("Lege notwendige Alltagskosten, Sicherheitspuffer, zusätzliches Spargeld und den nächsten Gehaltstag fest. Der Assistent verändert diese Vorgaben nie selbst.")
                 Button("Jetzt einrichten") { settingsOpen = true }
@@ -49,7 +49,7 @@ struct AssistantView: View {
             Section("Richtwert für freie Wünsche") {
                 Text(Euro.format(analysis.purchaseLimit)).font(.system(size: 36, weight: .bold)).foregroundStyle(assistMint)
                 Text(analysis.explanation).font(.subheadline)
-                if let payday = analysis.payday { Text("Bis \(payday.formatted(date: .abbreviated, time: .omitted)) · \(analysis.days) Tage") }
+                if let payday = analysis.payday { Text("Planungsende \(payday.formatted(date: .abbreviated, time: .omitted)) · \(analysis.days) Tage") }
                 if !analysis.ready { Button("Gehaltstag prüfen") { settingsOpen = true } }
                 if analysis.shortfall > 0 { Text("Im Plan fehlen \(Euro.format(analysis.shortfall)). Keine freien Wünsche empfohlen; Plan und Kontostand prüfen.").foregroundStyle(.orange) }
             }
@@ -57,10 +57,10 @@ struct AssistantView: View {
                 Section("Was vorher geschützt bleibt") {
                     value("Offene Fixkosten", analysis.fixedReserve)
                     value("Bereits in Spartöpfen", store.budget.reserved)
-                    value("Notwendiger Alltag bis Gehalt", analysis.essentialReserve)
+                    value("Alltag bis Planungsende", analysis.essentialReserve)
                     value("Sicherheitspuffer", analysis.buffer)
                     value("Noch zusätzlich sparen", analysis.extraSavings)
-                    Text("Künftiges Gehalt wird nicht als vorhandenes Guthaben gerechnet. Offene Fixkosten werden mindestens bis Monatsende und bis zum Gehaltstag berücksichtigt. Dein Wochenlimit gilt zusätzlich.").font(.caption).foregroundStyle(.secondary)
+                    Text("Künftiges Gehalt wird nicht als vorhandenes Guthaben gerechnet. Offene Fixkosten werden mindestens bis Monatsende und bis zum Planungsende berücksichtigt. Dein Wochenlimit gilt zusätzlich.").font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Sparen") {
                     value("Vorsichtiger Zusatzvorschlag", analysis.additionalSavingsSuggestion)
@@ -98,7 +98,7 @@ struct AssistantView: View {
             TextField("Händler (optional)", text: $merchant)
             Picker("Kategorie", selection: $category) { ForEach(["Lebensmittel", "Freizeit", "Mobilität", "Wohnen", "Sonstiges"], id: \.self) { Text($0) } }
             if let cents = try? Euro.parse(amount) {
-                if !analysis.ready { Text("Bitte zuerst den Assistenten einrichten und den Gehaltstag prüfen.").foregroundStyle(.orange) }
+                if !analysis.ready { Text("Die Berechnung ist noch nicht verfügbar. Prüfe die optionalen Einstellungen und Einnahmetermine.").foregroundStyle(.orange) }
                 else if cents > analysis.purchaseLimit { Text("Der Kauf liegt \(Euro.format(cents - analysis.purchaseLimit)) über deinem Richtwert. Wünsche verschieben; bei notwendigen Ausgaben den Plan prüfen.").foregroundStyle(.orange) }
                 else { Text("Nach diesem Kauf blieben nach den erfassten Planwerten \(Euro.format(analysis.purchaseLimit - cents)) für freie Wünsche.").foregroundStyle(assistMint) }
             }
@@ -133,15 +133,15 @@ struct AssistantView: View {
     @ViewBuilder private var learningSections: some View {
         Section("Was sich anpasst") {
             Text("Deine Markierungen ändern die Einschätzung bei Händlern und Kategorien. Ab 3 Händler-Beispielen oder 5 Kategorie-Beispielen wird eine vorsichtige Wahrscheinlichkeit berechnet.")
-            Text("Für Alltagskosten nutzt der Assistent die teureren deiner vollständig beobachteten Wochen. Er unterschreitet deinen selbst festgelegten Mindestbedarf nie und erhöht nie automatisch dein Wochenlimit.")
+            Text("Für Alltagskosten nutzt der Assistent die teureren Wochen seiner erfassten Historie. Im Automatikmodus schützt er auch unmarkierte Ausgaben; mit wenig Daten verwendet er vorläufig das Wochenlimit. Er unterschreitet deinen selbst festgelegten Mindestbedarf nie und erhöht nie automatisch dein Wochenlimit.")
             value("Dein Mindestbedarf / Woche", store.budget.assistant.essentialWeekly)
             value("Aktueller Ansatz / Woche", analysis.essentialWeekly)
-            Text("\(analysis.learnedWeeks) vollständige Wochen · \(analysis.learnedSamples) notwendige Ausgaben im Lernfenster. Nicht eingetragene Ausgaben kennt der Assistent nicht.").font(.caption).foregroundStyle(.secondary)
+            Text("\(analysis.learnedWeeks) vollständige Wochen · \(analysis.learnedSamples) berücksichtigte Ausgaben im Lernfenster. Nicht eingetragene Ausgaben kennt der Assistent nicht.").font(.caption).foregroundStyle(.secondary)
             let withdrawals = store.budget.reserveMovements.filter { $0.cents < 0 && !$0.emergency && $0.date >= now.addingTimeInterval(-30 * 86400) }
             if !withdrawals.isEmpty { Text("\(withdrawals.count) Entnahmen aus Spartöpfen in 30 Tagen. Prüfe vor einer weiteren Entnahme Wunschliste und Sparziel.").foregroundStyle(.orange) }
         }
         Section("Deine Rückmeldung trainiert die Einordnung") {
-            if store.budget.expenses.isEmpty { Text("Erfasse Ausgaben und markiere sie als notwendig, Wunsch oder Notfall.") }
+            if store.budget.expenses.isEmpty { Text("Erfasse Ausgaben. Eine Einordnung als notwendig, Wunsch oder Notfall ist optional und verbessert die Schätzung.") }
             ForEach(store.budget.expenses.prefix(25)) { expense in
                 VStack(alignment: .leading, spacing: 5) {
                     Text("\(expense.title) · \(Euro.format(expense.cents))").fontWeight(.semibold)
@@ -166,6 +166,7 @@ struct AssistantView: View {
 private struct AssistantSettingsView: View {
     @EnvironmentObject private var store: BudgetStore
     @Environment(\.dismiss) private var dismiss
+    @State private var automatic = true
     @State private var essential = ""
     @State private var buffer = ""
     @State private var savings = ""
@@ -175,11 +176,17 @@ private struct AssistantSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Deine festen Vorgaben") {
+                Section {
+                    Toggle("Automatisch aus meinen Einträgen", isOn: $automatic)
+                    Text("Kein Plan nötig. Einnahmetermine, Fixkosten, Spartöpfe und Ausgaben werden laufend ausgewertet. Ohne Einnahmetermin gilt ein vorläufiger Zeitraum von 30 Tagen. Mit wenig Historie bleibt das Wochenlimit für Alltag geschützt.").font(.caption)
+                }
+                Section("Optionale Mindestbeträge") {
                     field("Notwendiger Alltag pro Woche in €", $essential)
                     field("Sicherheitspuffer in €", $buffer)
-                    field("Noch zusätzlich sparen bis Gehalt in €", $savings)
-                    DatePicker("Nächster Gehaltstag", selection: $payday, in: Date()...Date().addingTimeInterval(62 * 86400), displayedComponents: .date)
+                    field("Zusätzlicher Sparbetrag in €", $savings)
+                    if !automatic {
+                        DatePicker("Nächster Gehaltstag", selection: $payday, in: Date()...Date().addingTimeInterval(62 * 86400), displayedComponents: .date)
+                    }
                     Picker("Notfalltopf", selection: $emergencyID) {
                         Text("Bitte wählen").tag(Optional<UUID>.none)
                         ForEach(store.budget.pots) { Text($0.name).tag(Optional($0.id)) }
@@ -187,17 +194,18 @@ private struct AssistantSettingsView: View {
                 }
                 Section {
                     Text("Alltag umfasst notwendige variable Ausgaben wie Lebensmittel und Fahrtkosten – keine Fixkosten. Bereits reserviertes Geld in Spartöpfen nicht nochmals beim zusätzlichen Sparbetrag eintragen.")
-                    Text("Der Plan gilt bis zum gewählten Gehaltstag und wird dann neu von dir bestätigt. Die App verschiebt kein Geld. Änderungen an diesen Grenzen entscheidest du selbst.")
+                    Text("Im Automatikmodus aktualisiert sich die Schätzung beim Erfassen oder Ändern von Daten. Optionale Mindestbeträge bleiben geschützt. Im manuellen Modus gilt der gewählte Gehaltstag. Die App verschiebt kein Geld.")
                 }
                 if let error { Text(error).foregroundStyle(.red) }
-                Button("Plan speichern") { save() }.fontWeight(.semibold)
-            }.navigationTitle("Assistent einrichten").navigationBarTitleDisplayMode(.inline)
+                Button("Einstellungen speichern") { save() }.fontWeight(.semibold)
+            }.navigationTitle("Assistent anpassen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } }
             }
             .onAppear {
                 let a = store.budget.assistant
+                automatic = a.usesAutomatic
                 essential = Euro.editable(a.essentialWeekly); buffer = Euro.editable(a.safetyBuffer); savings = Euro.editable(a.extraSavings)
                 payday = max(a.nextPayday ?? Date().addingTimeInterval(30 * 86400), Date().addingTimeInterval(86400))
                 emergencyID = a.emergencyPotID
@@ -216,7 +224,7 @@ private struct AssistantSettingsView: View {
             let buffer = try Euro.parse(buffer, allowZero: true)
             let savings = try Euro.parse(savings, allowZero: true)
             guard store.change({ b in
-                b.assistant.configured = true; b.assistant.essentialWeekly = essential; b.assistant.safetyBuffer = buffer
+                b.assistant.automatic = automatic; b.assistant.configured = true; b.assistant.essentialWeekly = essential; b.assistant.safetyBuffer = buffer
                 b.assistant.extraSavings = savings; b.assistant.nextPayday = Calendar.current.startOfDay(for: payday); b.assistant.emergencyPotID = emergencyID
             }) else { error = store.error; store.error = nil; return }
             dismiss()
