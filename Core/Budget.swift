@@ -1,13 +1,14 @@
 import Foundation
 
 public enum BudgetError: LocalizedError {
-    case invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue
+    case invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue, invalidEndDate
     public var errorDescription: String? {
         switch self {
         case .invalidAmount: return "Bitte einen gültigen Betrag eingeben (höchstens zwei Nachkommastellen)."
         case .insufficientFunds: return "Dafür ist nicht genug Geld verfügbar."
         case .missingPot: return "Dieser Spartopf ist nicht mehr vorhanden."
         case .alreadyBooked: return "Dieser Termin wurde bereits gebucht oder inzwischen geändert."
+        case .invalidEndDate: return "Die letzte Zahlung darf nicht vor dem ersten Zahlungstermin liegen."
         case .notDue: return "Dieser Termin liegt noch in der Zukunft."
         case .invalidBackup: return "Die gespeicherten Daten haben ein unbekanntes Format."
         }

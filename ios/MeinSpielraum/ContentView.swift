@@ -95,9 +95,15 @@ struct ContentView: View {
     private var main: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                if page == .household {
+                    Button { page = .overview; now = Date() } label: { Label("Übersicht", systemImage: "chevron.left").frame(minHeight: 44) }.accessibilityLabel("Zurück zur Übersicht")
+                }
                 HStack {
                     Text(page == .overview ? "Mein Spielraum" : page.rawValue).font(.system(size: 29, weight: .bold)).tracking(-0.8)
                     Spacer(minLength: 0)
+                    if page == .overview {
+                        Button { page = .household; now = Date() } label: { Image(systemName: "gearshape").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Haushalt und Einstellungen öffnen")
+                    }
                     if page == .household { Button { editor = .settings } label: { Image(systemName: "slider.horizontal.3").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Budget bearbeiten") }
                 }.padding(.bottom, 14)
                 if page == .overview { overview }
@@ -105,7 +111,9 @@ struct ContentView: View {
                 else { savings }
             }.padding(.horizontal, 22).padding(.top, 15).padding(.bottom, 24)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if page != .household { footer }
+        }
     }
     private var overview: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -162,6 +170,7 @@ struct ContentView: View {
             recurringHistory
             Divider()
             Text("Ausgaben").font(.title2.bold())
+            Button("Ausgabe erfassen", systemImage: "plus") { editor = .expense }
             if store.budget.expenses.isEmpty { Text("Eine frische Woche. Erfasse deine erste Ausgabe.").foregroundStyle(secondary).padding(.vertical, 25) }
             ForEach(store.budget.expenses) { e in
                 HStack {
@@ -203,8 +212,9 @@ struct ContentView: View {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(p.name).fontWeight(.semibold)
-                            Text("\(p.cadence.title) · \(p.nextDue().formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary)
-                            if p.kind == .fixedCost && p.cadence != .monthly { Text("Ca. \(Euro.format(p.monthlyEquivalent)) / Monat").font(.caption).foregroundStyle(secondary) }
+                            Text(p.hasPendingOccurrence() ? "\(p.cadence.title) · \(p.nextDue().formatted(date: .abbreviated, time: .omitted))" : "Abgeschlossen · alle Termine gebucht").font(.caption).foregroundStyle(secondary)
+                            if let end = p.endDate { Text("Zahlungen bis \(end.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary) }
+                            if p.kind == .fixedCost && p.cadence != .monthly && p.isActiveForPlanning(now: now) { Text("Ca. \(Euro.format(p.monthlyEquivalent)) / Monat").font(.caption).foregroundStyle(secondary) }
                         }
                         Spacer(minLength: 5)
                         Text(Euro.format(p.cents)).fontWeight(.semibold).monospacedDigit()
@@ -259,7 +269,7 @@ struct ContentView: View {
         VStack(spacing: 15) {
             Button("Ausgabe erfassen") { editor = .expense }.buttonStyle(MintButton())
             HStack {
-                ForEach(Page.allCases, id: \.self) { p in
+                ForEach([Page.overview, Page.pots], id: \.self) { p in
                     Button { page = p; now = Date() } label: {
                         VStack(spacing: 6) { Image(systemName: p.icon).font(.system(size: 23)); Text(p.rawValue).font(.caption) }.frame(maxWidth: .infinity).frame(minHeight: 48)
                     }.foregroundStyle(page == p ? mint : secondary).accessibilityAddTraits(page == p ? .isSelected : [])
@@ -348,6 +358,8 @@ private struct RecurringEditor: View {
     @State private var amount = ""
     @State private var cadence = PaymentCadence.monthly
     @State private var dueDate = Date()
+    @State private var hasEndDate = false
+    @State private var endDate = Date()
     @State private var validation: String?
     private var dateRange: ClosedRange<Date> {
         let c = Calendar(identifier: .gregorian)
@@ -363,6 +375,13 @@ private struct RecurringEditor: View {
                         Picker("Rhythmus", selection: $cadence) { ForEach(PaymentCadence.allCases) { Text($0.title).tag($0) } }
                     } else { LabeledContent("Rhythmus", value: "Monatlich") }
                     DatePicker("Nächste Fälligkeit", selection: $dueDate, in: dateRange, displayedComponents: .date)
+                    if kind == .fixedCost {
+                        Toggle("Letzte Zahlung festlegen", isOn: $hasEndDate)
+                        if hasEndDate {
+                            DatePicker("Letzte Zahlung spätestens", selection: $endDate, in: dateRange, displayedComponents: .date)
+                            Text("Es zählen die regulären Fälligkeiten bis einschließlich dieses Datums. Danach werden keine weiteren Zahlungen eingeplant. Bereits offene Termine bleiben erhalten.").font(.caption).foregroundStyle(secondary)
+                        }
+                    }
                 }
                 Section {
                     Text("Wähle den nächsten noch nicht gebuchten Termin. Der Folgetermin wird nach jeder Buchung automatisch berechnet. Am 29., 30. oder 31. wird in kürzeren Monaten der letzte Tag verwendet.").font(.subheadline).foregroundStyle(secondary)
@@ -382,6 +401,7 @@ private struct RecurringEditor: View {
             .onAppear {
                 if let id = existingID, let p = store.budget.payments.first(where: { $0.id == id }) {
                     name = p.name; amount = Euro.editable(p.cents); cadence = p.cadence; dueDate = p.nextDue()
+                    hasEndDate = p.endDate != nil; endDate = p.endDate ?? max(Date(), p.nextDue())
                 }
             }
         }.tint(mint)
@@ -391,7 +411,13 @@ private struct RecurringEditor: View {
             let cents = try Euro.parse(amount)
             let cleanName = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
             guard !cleanName.isEmpty else { validation = "Bitte einen Namen eingeben."; return }
-            let p = RecurringPayment(name: cleanName, cents: cents, kind: kind, cadence: kind == .income ? .monthly : cadence, firstDue: Calendar.current.startOfDay(for: dueDate))
+            var p = RecurringPayment(name: cleanName, cents: cents, kind: kind, cadence: kind == .income ? .monthly : cadence, firstDue: Calendar.current.startOfDay(for: dueDate), endDate: hasEndDate ? Calendar.current.startOfDay(for: endDate) : nil)
+            if let id = existingID, let old = store.budget.payments.first(where: { $0.id == id }),
+               old.cadence == p.cadence, Calendar.current.isDate(old.nextDue(), inSameDayAs: dueDate) {
+                // Keep the original anchor, including month-end and leap-day rules.
+                p.firstDue = old.firstDue; p.completed = old.completed
+            }
+            _ = try p.validated()
             let success = store.change { budget in
                 if let id = existingID { try budget.replacePayment(id: id, with: p) }
                 else { try budget.savePayment(p) }

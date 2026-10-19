@@ -17,23 +17,33 @@ public struct RecurringPayment: Codable, Equatable, Identifiable {
     public var cadence: PaymentCadence
     public var firstDue: Date
     public var completed: Int = 0
-    public init(name: String, cents: Int, kind: PaymentKind, cadence: PaymentCadence, firstDue: Date) {
-        self.name = name; self.cents = cents; self.kind = kind; self.cadence = cadence; self.firstDue = firstDue
+    public var endDate: Date? = nil
+    public init(name: String, cents: Int, kind: PaymentKind, cadence: PaymentCadence, firstDue: Date, endDate: Date? = nil) {
+        self.name = name; self.cents = cents; self.kind = kind; self.cadence = cadence; self.firstDue = firstDue; self.endDate = endDate
     }
     public func dueDate(at index: Int, calendar: Calendar = .current) -> Date {
         // Always use the original date: 31 Jan -> 28 Feb -> 31 Mar, without date drift.
         calendar.date(byAdding: .month, value: index * cadence.rawValue, to: firstDue) ?? firstDue
     }
     public func nextDue(calendar: Calendar = .current) -> Date { dueDate(at: completed, calendar: calendar) }
+    public func includesOccurrence(_ index: Int, calendar: Calendar = .current) -> Bool {
+        guard let endDate else { return true }
+        return calendar.startOfDay(for: dueDate(at: index, calendar: calendar)) <= calendar.startOfDay(for: endDate)
+    }
+    public func hasPendingOccurrence(calendar: Calendar = .current) -> Bool { includesOccurrence(completed, calendar: calendar) }
+    public func isActiveForPlanning(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let endDate else { return true }
+        return calendar.startOfDay(for: endDate) >= calendar.startOfDay(for: now)
+    }
     public var monthlyEquivalent: Int { (cents + cadence.rawValue - 1) / cadence.rawValue }
     public func isDue(now: Date = Date(), calendar: Calendar = .current) -> Bool {
-        calendar.startOfDay(for: nextDue(calendar: calendar)) <= calendar.startOfDay(for: now)
+        hasPendingOccurrence(calendar: calendar) && calendar.startOfDay(for: nextDue(calendar: calendar)) <= calendar.startOfDay(for: now)
     }
     public func outstandingThroughMonth(now: Date = Date(), calendar: Calendar = .current) -> Int {
         guard let month = calendar.dateInterval(of: .month, for: now) else { return 0 }
         var total = 0
         var index = completed
-        while index < 12_000, dueDate(at: index, calendar: calendar) < month.end {
+        while index < 12_000, includesOccurrence(index, calendar: calendar), dueDate(at: index, calendar: calendar) < month.end {
             total += cents
             index += 1
         }
@@ -44,6 +54,11 @@ public struct RecurringPayment: Codable, Equatable, Identifiable {
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, name.count <= 100,
               cents > 0, cents <= Euro.limit, (2000...2100).contains(year),
               (0..<12_000).contains(completed), kind != .income || cadence == .monthly else { throw BudgetError.invalidBackup }
+        if let endDate {
+            let c = Calendar(identifier: .gregorian)
+            guard (2000...2100).contains(c.component(.year, from: endDate)),
+                  c.startOfDay(for: endDate) >= c.startOfDay(for: firstDue) else { throw BudgetError.invalidEndDate }
+        }
         return self
     }
 }
@@ -66,7 +81,10 @@ extension Budget {
         balance - fixedReserve(now: now, calendar: calendar) - reserved
     }
     public var monthlyIncome: Int { payments.filter { $0.kind == .income }.reduce(0) { $0 + $1.cents } }
-    public var monthlyFixedEquivalent: Int { payments.filter { $0.kind == .fixedCost }.reduce(0) { $0 + $1.monthlyEquivalent } }
+    public var monthlyFixedEquivalent: Int { monthlyFixedEquivalent(now: Date()) }
+    public func monthlyFixedEquivalent(now: Date, calendar: Calendar = .current) -> Int {
+        payments.filter { $0.kind == .fixedCost && $0.isActiveForPlanning(now: now, calendar: calendar) }.reduce(0) { $0 + $1.monthlyEquivalent }
+    }
     public mutating func savePayment(_ payment: RecurringPayment) throws {
         _ = try payment.validated()
         guard !payments.contains(where: { $0.id == payment.id }), payments.count < 1000 else { throw BudgetError.invalidBackup }

@@ -1,10 +1,8 @@
-## Einnahmen und Fixkosten mit Termin
+## Fixkosten mit letzter Zahlung und eigener Haushaltsbereich
 
-- Mehrere monatliche Einnahmen mit Name, Betrag und nächstem Zahlungsdatum.
-- Fixkosten wahlweise monatlich, vierteljährlich oder jährlich, jeweils mit nächster Fälligkeit.
-- Bearbeiten und Entfernen von wiederkehrenden Posten; Folgetermine werden aus dem ursprünglichen Datum berechnet, inklusive Monatsende und Schaltjahr.
-- Monatliche Planübersicht mit Einnahmen und umgerechneten Fixkosten. Tatsächlich offene Fixkosten bis Monatsende einschließlich überfälliger Termine werden im verfügbaren Budget reserviert.
-- Fällige Einnahmen als erhalten und Fixkosten als bezahlt buchen. Das ändert den Kontostand einmal und setzt den nächsten Termin. Letzte Buchung je unverändertem Posten lässt sich rückgängig machen.
-- Bisherige Daten und Backups aus Version 0.1.1 bleiben lesbar. Der bisherige Fixkosten-Pauschalbetrag bleibt als zusätzliche Reserve erhalten. Beim Anlegen schon darin enthaltener Einzelposten diese Reserve entsprechend reduzieren.
+- Fixkosten können jetzt ein optionales Enddatum erhalten: „Letzte Zahlung festlegen“ aktivieren und das Datum wählen. Reguläre Fälligkeiten bis einschließlich dieses Tages werden berücksichtigt. Danach entstehen keine weiteren Termine oder Reserven.
+- Bereits offene letzte Zahlungen bleiben bis zum Bezahlen reserviert. Abgeschlossene Posten bleiben mit ihrem Verlauf erhalten. Ohne Enddatum läuft ein Posten wie bisher weiter.
+- Haushalt ist ein eigener Bereich und wird ausschließlich über das Zahnrad oben rechts in der Übersicht geöffnet. Unten bleiben Übersicht und Spartöpfe; ein Zurück-Pfeil führt aus dem Haushalt zur Übersicht.
+- Bearbeiten erhält den ursprünglichen Monatsende-/Schaltjahr-Anker, wenn Fälligkeit und Rhythmus unverändert bleiben.
 
-**Update:** In SideStore über die vorhandene Source aktualisieren. Die App nicht löschen; vorher ein Backup erstellen. Keine Bankanbindung und keine automatischen realen Zahlungen.
+**Update:** In SideStore über die vorhandene Source aktualisieren. Die App nicht löschen; bestehende Daten bleiben erhalten.

@@ -34,7 +34,7 @@ SideStore erkennt neue Versionen über die Source und bietet sie zum Aktualisier
 
 ## Einnahmen, Fixkosten und Budget
 
-Unter **Haushalt** kannst du mehrere monatliche Einnahmen sowie monatliche, vierteljährliche oder jährliche Fixkosten erfassen. Jeder Posten hat einen Namen, einen Betrag je Zahlung und eine nächste Fälligkeit. Über das Menü am Posten bearbeiten oder entfernen.
+Über das **Zahnrad oben rechts in der Übersicht** öffnest du den eigenen Bereich **Haushalt**. Dort kannst du mehrere monatliche Einnahmen sowie monatliche, vierteljährliche oder jährliche Fixkosten erfassen. Jeder Posten hat einen Namen, einen Betrag je Zahlung und eine nächste Fälligkeit. Fixkosten können zusätzlich ein optionales Datum **Letzte Zahlung spätestens** erhalten. Reguläre Termine bis einschließlich dieses Datums zählen; danach werden keine neuen Fälligkeiten oder Reserven berechnet. Eine schon fällige, aber unbezahlte letzte Zahlung bleibt offen. Ohne Enddatum läuft der Posten unbegrenzt weiter. Über das Menü am Posten bearbeiten oder entfernen. Haushalt ist kein unterer Tab mehr; über den Zurück-Pfeil geht es wieder zur Übersicht.
 
 - Die **monatliche Planung** zeigt Einnahmen, auf Monatsbeträge umgerechnete Fixkosten und den geplanten Rest. Vierteljährliche Beträge werden durch 3, jährliche durch 12 geteilt, bei Bruchteilen eines Cents aufgerundet. Variable Ausgaben und die zusätzliche pauschale Reserve sind hier nicht enthalten.
 - **Frei verfügbar = tatsächlicher Kontostand − offene Fixkosten bis Monatsende inklusive überfälliger Termine − zusätzliche Fixkostenreserve − Spartöpfe.**
