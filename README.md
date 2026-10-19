@@ -28,19 +28,25 @@ Die Assets wurden im Release v0.1.1 veröffentlicht. Der Workflow verwendet dyna
 
 ## Neue Versionen
 
-Jeder Push auf `main` erstellt eine neue Version `0.1.<GitHub-Laufnummer>`. Für eine neue Versionsserie `VERSION` ändern, z.B. auf `0.2`. Der erfolgreiche Release aktualisiert die Source unter derselben URL. Die Versionsnummer wird aus demselben Wert in die IPA und in die Source geschrieben; ihre Übereinstimmung wird geprüft.
+Jeder Push auf `main` erstellt eine neue Version `0.2.<GitHub-Laufnummer>`. Für eine neue Versionsserie `VERSION` ändern, z.B. auf `0.3`. Der erfolgreiche Release aktualisiert die Source unter derselben URL. Die Versionsnummer wird aus demselben Wert in die IPA und in die Source geschrieben; ihre Übereinstimmung wird geprüft.
 
 SideStore erkennt neue Versionen über die Source und bietet sie zum Aktualisieren an. Eine unbeaufsichtigte automatische Installation wird nicht zugesagt. Signierung erneuern/„Refresh“ und neue App-Version installieren sind unterschiedliche Vorgänge. Vor Updates ein Backup exportieren. App über die bestehende Installation aktualisieren, nicht deinstallieren. Bundle-ID `at.redshoxx.meinspielraum` und verwendetes Signierkonto beibehalten.
 
-## Budget und Speicherung
+## Einnahmen, Fixkosten und Budget
 
-- **Kontostand − kommende Fixkosten − Summe der Spartöpfe = frei verfügbar.** Spargeld ist Teil des eingetragenen Kontostands. Reservieren verändert den Kontostand nicht.
-- Wochenbudget: eingestelltes Limit abzüglich tatsächlicher Ausgaben der aktuellen ISO-Woche, höchstens das frei verfügbare Geld. Neue Woche setzt nur den Wochenverbrauch zurück; Kontostand und Historie bleiben erhalten.
-- Fixkosten sind eine aktuelle Reserve, keine automatischen wiederkehrenden Buchungen. Nach einer Abbuchung Kontostand und verbleibende Reserve abgleichen. Einnahmen über den aktuellen Kontostand ergänzen.
-- Geldbeträge werden in ganzen Cent gerechnet.
-- Einträge werden nach jeder erfolgreichen Änderung atomar in einer geschützten Datei im App-Speicher gespeichert. Bei Ladefehlern wird die bestehende Datei nicht überschrieben.
-- Unter **Haushalt → Backup erstellen** als JSON exportieren. Wiederherstellung verlangt eine Bestätigung und prüft das Datenformat. Backups enthalten deine Haushaltsdaten und sind nicht separat verschlüsselt; bewahre sie privat auf. Beim Löschen der App gehen lokale Daten verloren.
-- Start mit eigenen Zahlen oder mit Beispieldaten. Beispiel: Kontostand 2.180 €, Fixkosten 370 €, Spartöpfe 1.230 €, verfügbar 580 €. Diese Rechnung korrigiert die uneinheitliche Sparreserve des ersten Designbilds.
+Unter **Haushalt** kannst du mehrere monatliche Einnahmen sowie monatliche, vierteljährliche oder jährliche Fixkosten erfassen. Jeder Posten hat einen Namen, einen Betrag je Zahlung und eine nächste Fälligkeit. Über das Menü am Posten bearbeiten oder entfernen.
+
+- Die **monatliche Planung** zeigt Einnahmen, auf Monatsbeträge umgerechnete Fixkosten und den geplanten Rest. Vierteljährliche Beträge werden durch 3, jährliche durch 12 geteilt, bei Bruchteilen eines Cents aufgerundet. Variable Ausgaben und die zusätzliche pauschale Reserve sind hier nicht enthalten.
+- **Frei verfügbar = tatsächlicher Kontostand − offene Fixkosten bis Monatsende inklusive überfälliger Termine − zusätzliche Fixkostenreserve − Spartöpfe.**
+- Zukünftige Einnahmen sind Planwerte. Sobald eine Zahlung fällig und eingegangen ist, **Als erhalten buchen** wählen. Fällige Fixkosten mit **Als bezahlt buchen** erfassen. Das aktualisiert Kontostand und Folgetermin einmal. Bereits im manuell eingetragenen Kontostand enthaltene Zahlungen nicht nochmals buchen.
+- Fixkostenbuchungen reduzieren gleichzeitig die offene Reserve und den Kontostand; sie werden nicht zusätzlich dem variablen Wochenbudget zugerechnet. Nicht nochmals als normale Ausgabe erfassen.
+- Folgetermine werden vom ursprünglichen Datum aus berechnet: 31. Jänner → 28./29. Februar → 31. März; vierteljährlich in 3-Monats-Schritten, jährlich in 12-Monats-Schritten. Jeder noch offene Termin wird einzeln bestätigt.
+- Die letzte Buchung je unverändertem Posten kann im Buchungsverlauf rückgängig gemacht werden. Änderungen an einem Posten gelten ab dem gewählten nächsten Termin und erhalten frühere Buchungen. Nach Bearbeiten/Entfernen lassen sich alte Buchungen dieses Postens nicht über die Terminliste rückgängig machen; der Kontostand ist weiterhin unter Budget bearbeiten korrigierbar.
+- Vorhandene Daten aus 0.1.1 und alte JSON-Backups werden übernommen. Die bisherige Fixkostenreserve bleibt als **zusätzliche Reserve** erhalten. Wenn neue Einzelposten schon darin enthalten waren, den Pauschalbetrag entsprechend reduzieren, um doppelte Reservierung zu vermeiden.
+- Wochenbudget: eingestelltes Limit minus variable Ausgaben der aktuellen ISO-Woche, höchstens das frei verfügbare Geld. Neue Woche setzt nur den Wochenverbrauch zurück; Kontostand und Historie bleiben erhalten.
+- Alle Beträge werden in ganzen Cent gerechnet. Geld für einen Spartopf reservieren verändert den Kontostand nicht.
+- Einträge werden nach jeder erfolgreichen Änderung atomar in einer geschützten Datei im App-Speicher gespeichert. Die vorhandene Datei bleibt bei Ladefehlern unverändert. Dateiname und Bundle-ID bleiben beim Update gleich.
+- Unter **Haushalt → Backup erstellen** als JSON exportieren. Wiederherstellung verlangt eine Bestätigung und prüft das Datenformat. Backups enthalten private Haushaltsdaten; bewahre sie privat auf. Beim Löschen der App gehen lokale Daten verloren. Neue Backups mit Datenformat 2 sind nicht für alte App-Versionen bestimmt.
 
 ## Entwicklung und Prüfungen
 

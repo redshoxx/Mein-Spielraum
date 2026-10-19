@@ -1,15 +1,13 @@
-# Prüfstand · Version 0.1.1
+# Prüfstand · Einnahmen und wiederkehrende Fixkosten
 
-GitHub-Actions-Lauf: https://github.com/redshoxx/Mein-Spielraum/actions/runs/39246691716
-Quellcommit: 3cf541f611362d9c54dea4f3bed92c9ea0703f3a
-Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.1.1
-Datum: 19.10.2026
+Geplant: Versionsserie 0.2. GitHub-Build steht für diese Änderung noch aus.
 
-- Swift-Rechenkern: 5 Tests bestanden.
-- Python Source-Generator: 3 Tests bestanden.
-- Xcode 16.4 / iPhoneOS 18.5 SDK / Deployment Target iOS 17.0: Gerätebuild erfolgreich.
-- IPA erstellt, App-Identifier, Versionsnummer und ausführbare Datei geprüft.
-- Release-Assets veröffentlicht: IPA (1.901.971 Bytes), source.json, Icon, Prüfsumme.
-- SideStore-Installation und native Bildschirm-/Bedienprüfung auf echtem iPhone: ausstehend.
+## Tests
+- Bisherige 5 Budgettests bleiben bestehen.
+- 10 zusätzliche Swift-Tests für Monatsende, Vierteljahr, Schaltjahr, zukünftige Einnahmen, Doppelbuchungsschutz, Fixkosten ohne Doppelabzug, überfällige Termine, Datenmigration und Bearbeiten mit Historie.
+- Python-Source-Generator: 3 Tests lokal bestanden.
+- Neue Swift-Tests und Xcode-Gerätebuild laufen im GitHub-Workflow vor einer Veröffentlichung.
+- Native Bildschirm-/Bedienprüfung auf echtem iPhone bleibt ausstehend.
 
-Die Python-Tests verwenden Test-IPA-Dateien zur Metadatenprüfung. Der Workflow prüfte anschließend zusätzlich die tatsächlich mit Xcode gebaute IPA. Es wird keine visuelle oder reale Geräteprüfung behauptet.
+## Datenübernahme
+Schema 1 wird mit unveränderten Kontoständen, Reserven, Spartöpfen und Ausgaben in Schema 2 eingelesen. Neue Listen werden nur bei Schema 1 als leer ergänzt. Bei fehlenden Listen in Schema 2 wird ein Fehler ausgelöst. Speicherdatei und Bundle-ID werden beibehalten.

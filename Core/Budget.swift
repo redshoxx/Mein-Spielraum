@@ -1,12 +1,14 @@
 import Foundation
 
 public enum BudgetError: LocalizedError {
-    case invalidAmount, insufficientFunds, missingPot, invalidBackup
+    case invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue
     public var errorDescription: String? {
         switch self {
         case .invalidAmount: return "Bitte einen gültigen Betrag eingeben (höchstens zwei Nachkommastellen)."
         case .insufficientFunds: return "Dafür ist nicht genug Geld verfügbar."
         case .missingPot: return "Dieser Spartopf ist nicht mehr vorhanden."
+        case .alreadyBooked: return "Dieser Termin wurde bereits gebucht oder inzwischen geändert."
+        case .notDue: return "Dieser Termin liegt noch in der Zukunft."
         case .invalidBackup: return "Die gespeicherten Daten haben ein unbekanntes Format."
         }
     }
@@ -53,22 +55,41 @@ public struct Expense: Codable, Identifiable, Equatable {
     public var date: Date
 }
 public struct Budget: Codable, Equatable {
-    public var schema = 1
+    public var schema = 2
     public var setupComplete = false
     public var balance = 0
     public var fixedCosts = 0
     public var weeklyLimit = 14_500
     public var pots: [SavingPot] = [.init(name: "Urlaub", target: 80_000), .init(name: "Notgroschen", target: 100_000)]
     public var expenses: [Expense] = []
+    public var payments: [RecurringPayment] = []
+    public var recurringRecords: [RecurringRecord] = []
     public init() {}
+    enum CodingKeys: String, CodingKey { case schema, setupComplete, balance, fixedCosts, weeklyLimit, pots, expenses, payments, recurringRecords }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let oldSchema = try c.decode(Int.self, forKey: .schema)
+        guard oldSchema == 1 || oldSchema == 2 else { throw BudgetError.invalidBackup }
+        schema = 2
+        setupComplete = try c.decode(Bool.self, forKey: .setupComplete)
+        balance = try c.decode(Int.self, forKey: .balance)
+        fixedCosts = try c.decode(Int.self, forKey: .fixedCosts)
+        weeklyLimit = try c.decode(Int.self, forKey: .weeklyLimit)
+        pots = try c.decode([SavingPot].self, forKey: .pots)
+        expenses = try c.decode([Expense].self, forKey: .expenses)
+        if oldSchema == 2 {
+            payments = try c.decode([RecurringPayment].self, forKey: .payments)
+            recurringRecords = try c.decode([RecurringRecord].self, forKey: .recurringRecords)
+        }
+    }
     public var reserved: Int { pots.reduce(0) { $0 + $1.cents } }
-    public var available: Int { balance - fixedCosts - reserved }
+    public var available: Int { available(now: Date()) }
     public func weeklySpent(now: Date = Date(), calendar: Calendar = Calendar(identifier: .iso8601)) -> Int {
         guard let interval = calendar.dateInterval(of: .weekOfYear, for: now) else { return 0 }
         return expenses.filter { $0.date >= interval.start && $0.date < interval.end }.reduce(0) { $0 + $1.cents }
     }
     public func weeklyRemaining(now: Date = Date(), calendar: Calendar = Calendar(identifier: .iso8601)) -> Int {
-        min(weeklyLimit - weeklySpent(now: now, calendar: calendar), available)
+        min(weeklyLimit - weeklySpent(now: now, calendar: calendar), available(now: now, calendar: calendar))
     }
     public mutating func addExpense(cents: Int, title: String, category: String, date: Date = Date()) throws {
         guard cents > 0, cents <= Euro.limit else { throw BudgetError.invalidAmount }
@@ -98,12 +119,16 @@ public struct Budget: Codable, Equatable {
         return b
     }
     public func validated() throws -> Budget {
-        guard schema == 1, balance >= 0, balance <= Euro.limit, fixedCosts >= 0, fixedCosts <= Euro.limit,
+        guard schema == 2, balance >= 0, balance <= Euro.limit, fixedCosts >= 0, fixedCosts <= Euro.limit,
               weeklyLimit > 0, weeklyLimit <= Euro.limit,
               pots.count <= 100, Set(pots.map(\.id)).count == pots.count,
               Set(expenses.map(\.id)).count == expenses.count,
               pots.allSatisfy({ !$0.name.isEmpty && $0.cents >= 0 && $0.cents <= Euro.limit && $0.target > 0 && $0.target <= Euro.limit }),
-              expenses.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit }) else { throw BudgetError.invalidBackup }
+              expenses.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit }),
+              payments.count <= 1000, Set(payments.map(\.id)).count == payments.count,
+              recurringRecords.count <= 100_000, Set(recurringRecords.map(\.id)).count == recurringRecords.count,
+              recurringRecords.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit && (0..<12_000).contains($0.occurrence) }) else { throw BudgetError.invalidBackup }
+        for payment in payments { _ = try payment.validated() }
         return self
     }
 }

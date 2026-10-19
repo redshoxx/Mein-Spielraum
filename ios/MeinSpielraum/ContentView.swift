@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
+import Combine
 
 private let mint = Color(red: 0.39, green: 0.95, blue: 0.77)
 private let canvas = Color(red: 0.063, green: 0.071, blue: 0.082)
@@ -8,8 +9,8 @@ private let secondary = Color(red: 0.68, green: 0.70, blue: 0.75)
 private enum Page: String, CaseIterable { case overview = "Übersicht", household = "Haushalt", pots = "Spartöpfe"
     var icon: String { switch self { case .overview: return "house"; case .household: return "doc.text"; case .pots: return "cylinder.split.1x2" } }
 }
-private enum Editor: Identifiable { case expense, settings, pot(UUID), newPot
-    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .pot(let id): return id.uuidString; case .newPot: return "new" } }
+private enum Editor: Identifiable { case expense, settings, pot(UUID), newPot, payment(PaymentKind, UUID?)
+    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .pot(let id): return id.uuidString; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
 }
 struct ContentView: View {
     @EnvironmentObject private var store: BudgetStore
@@ -20,6 +21,9 @@ struct ContentView: View {
     @State private var importBackup = false
     @State private var pendingImport: Budget?
     @State private var exported: URL?
+    @State private var pendingPayment: RecurringPayment?
+    @State private var removingPayment: RecurringPayment?
+    private let dayTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     private var calendar: Calendar { var c = Calendar(identifier: .iso8601); c.timeZone = .current; return c }
     private var weekLabel: String {
         guard let range = calendar.dateInterval(of: .weekOfYear, for: now), let end = calendar.date(byAdding: .day, value: 6, to: range.start) else { return "Diese Woche" }
@@ -32,7 +36,32 @@ struct ContentView: View {
             else { main }
         }
         .background(canvas.ignoresSafeArea()).tint(mint)
-        .sheet(item: $editor) { entry in EditorView(editor: entry).environmentObject(store).preferredColorScheme(.dark) }
+        .sheet(item: $editor) { entry in
+            Group {
+                switch entry {
+                case .payment(let kind, let id): RecurringEditor(kind: kind, existingID: id)
+                default: EditorView(editor: entry)
+                }
+            }.environmentObject(store).preferredColorScheme(.dark)
+        }
+        .onReceive(dayTimer) { now = $0 }
+        .confirmationDialog("Termin buchen?", isPresented: Binding(get: { pendingPayment != nil }, set: { if !$0 { pendingPayment = nil } }), titleVisibility: .visible) {
+            if let p = pendingPayment {
+                Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") {
+                    store.change { try $0.bookPayment(id: p.id, expectedOccurrence: p.completed, now: now) }
+                    pendingPayment = nil
+                }
+                Button("Abbrechen", role: .cancel) { pendingPayment = nil }
+            }
+        } message: {
+            if let p = pendingPayment { Text("\(p.name) · \(Euro.format(p.cents)) · fällig \(p.nextDue().formatted(date: .abbreviated, time: .omitted)). Nur buchen, wenn die Zahlung noch nicht im eingetragenen Kontostand enthalten ist.") }
+        }
+        .confirmationDialog("Wiederkehrenden Posten entfernen?", isPresented: Binding(get: { removingPayment != nil }, set: { if !$0 { removingPayment = nil } }), titleVisibility: .visible) {
+            if let p = removingPayment {
+                Button("Entfernen", role: .destructive) { store.change { $0.payments.removeAll { $0.id == p.id } }; removingPayment = nil }
+                Button("Abbrechen", role: .cancel) { removingPayment = nil }
+            }
+        } message: { Text("Bisherige Buchungen und dein Kontostand bleiben erhalten. Nur die künftigen Termine werden entfernt.") }
         .alert("Hinweis", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("OK", role: .cancel) { store.error = nil }
         } message: { Text(store.error ?? "") }
@@ -88,7 +117,7 @@ struct ContentView: View {
             Text(Euro.format(store.budget.available)).font(.system(size: 37, weight: .bold)).tracking(-1).padding(.top, 3)
             VStack(spacing: 13) {
                 ledger("Kontostand", store.budget.balance)
-                ledger("Kommende Fixkosten", -store.budget.fixedCosts)
+                ledger("Fixkosten bis Monatsende", -store.budget.fixedReserve(now: now))
                 ledger("Sparreserve", -store.budget.reserved)
             }.padding(.top, 22).padding(.bottom, 15)
             Divider()
@@ -118,8 +147,19 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 22) {
             Text("Dein Geld. Klar im Blick.").foregroundStyle(secondary)
             Text(Euro.format(store.budget.available)).font(.system(size: 48, weight: .bold)).foregroundStyle(mint)
-            VStack(spacing: 14) { ledger("Kontostand", store.budget.balance); ledger("Kommende Fixkosten", store.budget.fixedCosts); ledger("Diese Woche ausgegeben", store.budget.weeklySpent(now: now, calendar: calendar)) }
-            Text("Fixkosten sind eine aktuelle Reserve. Nach einer Abbuchung Kontostand und verbleibende Reserve unter Budget bearbeiten abgleichen.").font(.caption).foregroundStyle(secondary)
+            VStack(spacing: 14) { ledger("Kontostand", store.budget.balance); ledger("Fixkosten bis Monatsende", store.budget.fixedReserve(now: now)); ledger("Diese Woche ausgegeben", store.budget.weeklySpent(now: now, calendar: calendar)) }
+            Text("Offene Fixkosten bis Monatsende inklusive überfälliger Termine werden reserviert. Künftige Einnahmen sind noch nicht als verfügbares Geld gezählt.").font(.caption).foregroundStyle(secondary)
+            monthlyPlan
+            recurringSection(.income)
+            recurringSection(.fixedCost)
+            if store.budget.fixedCosts > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    ledger("Zusätzliche Fixkostenreserve", store.budget.fixedCosts)
+                    Text("Dein bisheriger Pauschalbetrag bleibt zusätzlich erhalten. Passe ihn unter Budget bearbeiten an, wenn neue Einzelposten darin bereits enthalten sind.").font(.caption).foregroundStyle(secondary)
+                    Button("Reserve anpassen") { editor = .settings }
+                }
+            }
+            recurringHistory
             Divider()
             Text("Ausgaben").font(.title2.bold())
             if store.budget.expenses.isEmpty { Text("Eine frische Woche. Erfasse deine erste Ausgabe.").foregroundStyle(secondary).padding(.vertical, 25) }
@@ -138,6 +178,71 @@ struct ContentView: View {
             if let exported { ShareLink("Backup teilen oder in Dateien sichern", item: exported).font(.subheadline) }
             Button("Backup wiederherstellen", systemImage: "arrow.down.doc") { importBackup = true }
             Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0") · Daten nur auf deinem Gerät").font(.caption).foregroundStyle(secondary)
+        }
+    }
+    private var monthlyPlan: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            Text("Monatliche Planung").font(.title2.bold())
+            ledger("Einnahmen / Monat", store.budget.monthlyIncome)
+            ledger("Fixkosten / Monat ca.", store.budget.monthlyFixedEquivalent)
+            ledger("Nach Fixkosten ca.", store.budget.monthlyIncome - store.budget.monthlyFixedEquivalent)
+            Text("Planwerte ohne variable Ausgaben. Vierteljährliche Kosten ÷ 3, jährliche ÷ 12. Die zusätzliche Reserve ist hier nicht enthalten.").font(.caption).foregroundStyle(secondary)
+        }
+    }
+    private func recurringSection(_ kind: PaymentKind) -> some View {
+        let entries = store.budget.payments.filter { $0.kind == kind }.sorted { $0.nextDue() < $1.nextDue() }
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text(kind == .income ? "Monatliche Einnahmen" : "Fixkosten mit Termin").font(.title2.bold())
+                Spacer()
+                Button { editor = .payment(kind, nil) } label: { Image(systemName: "plus").frame(width: 44, height: 44) }.accessibilityLabel(kind == .income ? "Einnahme hinzufügen" : "Fixkosten hinzufügen")
+            }
+            if entries.isEmpty { Text(kind == .income ? "Trage zum Beispiel Gehalt oder eine monatliche Unterstützung ein." : "Zum Beispiel Miete, Strom oder eine Jahresversicherung.").font(.subheadline).foregroundStyle(secondary) }
+            ForEach(entries) { p in
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(p.name).fontWeight(.semibold)
+                            Text("\(p.cadence.title) · \(p.nextDue().formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary)
+                            if p.kind == .fixedCost && p.cadence != .monthly { Text("Ca. \(Euro.format(p.monthlyEquivalent)) / Monat").font(.caption).foregroundStyle(secondary) }
+                        }
+                        Spacer(minLength: 5)
+                        Text(Euro.format(p.cents)).fontWeight(.semibold).monospacedDigit()
+                        Menu {
+                            Button("Bearbeiten", systemImage: "pencil") { editor = .payment(kind, p.id) }
+                            Button("Entfernen", systemImage: "trash", role: .destructive) { removingPayment = p }
+                        } label: { Image(systemName: "ellipsis").frame(width: 32, height: 44) }.accessibilityLabel("\(p.name) verwalten")
+                    }
+                    if p.isDue(now: now) {
+                        Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") { pendingPayment = p }.font(.subheadline.weight(.semibold)).frame(minHeight: 36)
+                        Text("Termin fällig oder überfällig").font(.caption).foregroundStyle(.orange)
+                    }
+                }
+                Divider()
+            }
+            Button(kind == .income ? "Einnahme hinzufügen" : "Fixkosten hinzufügen", systemImage: "plus") { editor = .payment(kind, nil) }
+        }
+    }
+    private var recurringHistory: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if !store.budget.recurringRecords.isEmpty {
+                Text("Gebuchte Einnahmen & Fixkosten").font(.headline)
+                ForEach(store.budget.recurringRecords.prefix(30)) { record in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(record.name)
+                            Text("Gebucht \(record.bookedAt.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary)
+                        }
+                        Spacer()
+                        Text((record.kind == .income ? "+" : "−") + Euro.format(record.cents)).foregroundStyle(record.kind == .income ? mint : .white)
+                        if store.budget.payments.contains(where: { $0.id == record.paymentID && $0.completed == record.occurrence + 1 }) {
+                            Menu {
+                                Button("Buchung rückgängig machen", systemImage: "arrow.uturn.backward") { store.change { try $0.undoPayment(recordID: record.id) } }
+                            } label: { Image(systemName: "ellipsis").frame(width: 32, height: 44) }.accessibilityLabel("Buchung verwalten")
+                        }
+                    }
+                }
+            }
         }
     }
     private var savings: some View {
@@ -179,17 +284,17 @@ private struct EditorView: View {
     @State private var weekly = ""
     @State private var release = false
     @State private var validation: String?
-    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
+    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .payment: return "Zahlung"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
     var body: some View {
         NavigationStack {
             Form {
                 if case .settings = editor {
                     Section("Aktuelle Beträge") {
                         field("Kontostand in €", text: $amount)
-                        field("Kommende Fixkosten in €", text: $fixed)
+                        field("Zusätzliche Fixkostenreserve in €", text: $fixed)
                         field("Wochenlimit in €", text: $weekly)
                     }
-                    Section { Text("Alle Spartöpfe sind Teil dieses Kontostands. Änderungen gleichen deinen aktuellen Stand ab. Es werden keine Einnahmen oder Abbuchungen automatisch gebucht.").foregroundStyle(secondary) }
+                    Section { Text("Alle Spartöpfe sind Teil dieses Kontostands. Änderungen gleichen deinen aktuellen Stand ab. Einzelne Fixkosten mit Termin werden zusätzlich reserviert. Bereits darin enthaltene Beträge aus der zusätzlichen Reserve herausnehmen.").foregroundStyle(secondary) }
                 } else {
                     if case .pot = editor { Picker("Aktion", selection: $release) { Text("Reservieren").tag(false); Text("Freigeben").tag(true) }.pickerStyle(.segmented) }
                     Section { field(editorIsNewPot ? "Sparziel in €" : "Betrag in €", text: $amount) }
@@ -198,7 +303,7 @@ private struct EditorView: View {
                             TextField("Bezeichnung (optional)", text: $title)
                             Picker("Kategorie", selection: $category) { ForEach(["Lebensmittel", "Freizeit", "Mobilität", "Wohnen", "Sonstiges"], id: \.self) { Text($0) } }
                         }
-                        Text("Die Ausgabe reduziert deinen Kontostand. Fixkosten-Abbuchungen bitte anschließend auch aus der Reserve herausnehmen.").font(.caption).foregroundStyle(secondary)
+                        Text("Die Ausgabe reduziert deinen Kontostand. Fixkosten mit Termin bitte im Haushalt als bezahlt buchen, damit die Reserve gleichzeitig freigegeben wird.").font(.caption).foregroundStyle(secondary)
                     }
                     if case .newPot = editor { TextField("Name des Spartopfs", text: $title) }
                     if case .pot = editor { Text("Frei verfügbar: \(Euro.format(store.budget.available)). Reservieren verschiebt kein Geld auf ein anderes Bankkonto.").font(.subheadline).foregroundStyle(secondary) }
@@ -224,11 +329,74 @@ private struct EditorView: View {
                 if store.change({ try $0.addExpense(cents: cents, title: String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100)), category: category) }) { dismiss() }
             case .pot(let id):
                 if store.change({ b in if release { try b.release(cents: cents, potID: id) } else { try b.allocate(cents: cents, potID: id) } }) { dismiss() }
+            case .payment: return
             case .newPot:
                 let name = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
                 guard !name.isEmpty else { validation = "Bitte einen Namen eingeben."; return }
                 if store.change({ $0.pots.append(.init(name: name, target: cents)) }) { dismiss() }
             }
+        } catch { validation = error.localizedDescription }
+    }
+}
+
+private struct RecurringEditor: View {
+    let kind: PaymentKind
+    let existingID: UUID?
+    @EnvironmentObject private var store: BudgetStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var amount = ""
+    @State private var cadence = PaymentCadence.monthly
+    @State private var dueDate = Date()
+    @State private var validation: String?
+    private var dateRange: ClosedRange<Date> {
+        let c = Calendar(identifier: .gregorian)
+        return c.date(from: DateComponents(year: 2000, month: 1, day: 1))!...c.date(from: DateComponents(year: 2100, month: 12, day: 31))!
+    }
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("\(kind == .income ? "Einnahme" : "Fixkosten")") {
+                    TextField("Name, z. B. \(kind == .income ? "Gehalt" : "Versicherung")", text: $name).accessibilityLabel("Name")
+                    TextField("Betrag je Zahlung in €", text: $amount).keyboardType(.decimalPad).accessibilityLabel("Betrag je Zahlung in Euro")
+                    if kind == .fixedCost {
+                        Picker("Rhythmus", selection: $cadence) { ForEach(PaymentCadence.allCases) { Text($0.title).tag($0) } }
+                    } else { LabeledContent("Rhythmus", value: "Monatlich") }
+                    DatePicker("Nächste Fälligkeit", selection: $dueDate, in: dateRange, displayedComponents: .date)
+                }
+                Section {
+                    Text("Wähle den nächsten noch nicht gebuchten Termin. Der Folgetermin wird nach jeder Buchung automatisch berechnet. Am 29., 30. oder 31. wird in kürzeren Monaten der letzte Tag verwendet.").font(.subheadline).foregroundStyle(secondary)
+                    if kind == .income { Text("Der Kontostand steigt erst durch ‚Als erhalten buchen‘.").font(.subheadline).foregroundStyle(secondary) }
+                    else { Text("Offene Termine bis Monatsende werden reserviert. ‚Als bezahlt buchen‘ verringert Kontostand und offene Reserve gleichzeitig. Nicht nochmals als normale Ausgabe erfassen.").font(.subheadline).foregroundStyle(secondary) }
+                    if existingID != nil { Text("Änderungen gelten ab dem gewählten nächsten Termin. Frühere Buchungen bleiben erhalten.").font(.caption).foregroundStyle(secondary) }
+                }
+                if let validation { Text(validation).foregroundStyle(.red) }
+                Button("Speichern") { save() }.fontWeight(.bold)
+            }
+            .navigationTitle(kind == .income ? "Monatliche Einnahme" : "Fixkosten")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } }
+            }
+            .onAppear {
+                if let id = existingID, let p = store.budget.payments.first(where: { $0.id == id }) {
+                    name = p.name; amount = Euro.editable(p.cents); cadence = p.cadence; dueDate = p.nextDue()
+                }
+            }
+        }.tint(mint)
+    }
+    private func save() {
+        do {
+            let cents = try Euro.parse(amount)
+            let cleanName = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
+            guard !cleanName.isEmpty else { validation = "Bitte einen Namen eingeben."; return }
+            let p = RecurringPayment(name: cleanName, cents: cents, kind: kind, cadence: kind == .income ? .monthly : cadence, firstDue: Calendar.current.startOfDay(for: dueDate))
+            let success = store.change { budget in
+                if let id = existingID { try budget.replacePayment(id: id, with: p) }
+                else { try budget.savePayment(p) }
+            }
+            if success { dismiss() } else { validation = store.error; store.error = nil }
         } catch { validation = error.localizedDescription }
     }
 }
