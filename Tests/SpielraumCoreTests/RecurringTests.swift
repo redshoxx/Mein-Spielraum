@@ -91,7 +91,7 @@ final class RecurringTests: XCTestCase {
         XCTAssertEqual(migrated.expenses, original.expenses)
         XCTAssertEqual(migrated.fixedCosts, original.fixedCosts)
         XCTAssertEqual(migrated.payments, [])
-        XCTAssertEqual(migrated.schema, 2)
+        XCTAssertEqual(migrated.schema, 3)
         XCTAssertEqual(try JSONDecoder().decode(Budget.self, from: JSONEncoder().encode(migrated)), migrated)
     }
     func testV2MissingFieldsAndInvalidSchedulesAreRejected() throws {

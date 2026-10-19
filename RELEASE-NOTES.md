@@ -1,9 +1,11 @@
-## Nächste Fixkosten direkt in der Übersicht
+## Lernender Budget-Assistent · lokal auf deinem iPhone
 
-- Neuer Bereich „Nächste Fixkosten“ mit Name, Betrag und genauem Fälligkeitsdatum.
-- Klare Tagesangaben: heute, morgen, in X Tagen oder X Tage überfällig. Überfällige und heute fällige Zahlungen werden hervorgehoben.
-- Nach Fälligkeit sortiert, je Fixkostenposten der nächste offene Termin. Zunächst vier Posten sichtbar, weitere über „Alle anzeigen“.
-- Gebuchte Zahlungen zeigen den Folgetermin; abgeschlossene Posten werden ausgeblendet. Offene Schlusszahlungen bleiben sichtbar.
-- Haushalt und Einstellungen bleiben über das Zahnrad oben rechts erreichbar.
+- Neuer Assistent auf der Übersicht mit Plan, Kaufcheck und Lernen. Kein externer KI-Dienst und keine Bankverbindung erforderlich.
+- Lernt aus deinen Markierungen „Notwendig“, „Wunsch“ und „Notfall“ sowie optionalem Händler. Bayesianische Einordnung bei ausreichend Beispielen; vorsichtige Ausgabenprognose aus vollständig beobachteten Wochen. Unsicherheit wird angezeigt.
+- Kauf-Richtwert schützt Fixkosten mindestens bis Monatsende und bis zum Gehaltstag, notwendige Alltagskosten, Spartöpfe, zusätzlichen Sparplan und Sicherheitspuffer. Das eigene Wochenlimit bleibt unverändert. Künftiges Gehalt wird nicht als Guthaben gerechnet.
+- Wunschliste mit 48-Stunden-Kaufpause und erneuter Budgetprüfung beim Erfassen des Kaufs.
+- Notfallausgaben sofort aus einem selbst ausgewählten Spartopf erfassen, ohne Wartezeit. Kein Kredit, keine Überweisung. Rückgängig stellt die Reserve wieder her.
+- Rückmeldungen ändern die Einschätzung, nicht automatisch deine Grenzen. Entnahmen aus Spartöpfen werden erfasst und angezeigt.
+- Datenformate 1 und 2 werden in Format 3 übernommen; bestehende Kontostände, Einträge und Sparziele bleiben erhalten. Vor dem Update Backup erstellen und App nicht löschen.
 
-**Update:** Über die bestehende SideStore-Source aktualisieren. Daten und bisherige Einträge bleiben erhalten.
+Der Algorithmus nutzt nur erfasste Daten und kann die beste Entscheidung oder Schuldenfreiheit nicht garantieren. Keine GPS-Überwachung, kein Zugriff auf George, keine Banksperre. Kaufentscheidungen und Bankeinstellungen bleiben bei dir.

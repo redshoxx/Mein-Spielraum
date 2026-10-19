@@ -1,13 +1,16 @@
 import Foundation
 
 public enum BudgetError: LocalizedError {
-    case invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue, invalidEndDate
+    case invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue, invalidEndDate, purchasePause, budgetProtected, emergencyFunds
     public var errorDescription: String? {
         switch self {
         case .invalidAmount: return "Bitte einen gültigen Betrag eingeben (höchstens zwei Nachkommastellen)."
         case .insufficientFunds: return "Dafür ist nicht genug Geld verfügbar."
         case .missingPot: return "Dieser Spartopf ist nicht mehr vorhanden."
         case .alreadyBooked: return "Dieser Termin wurde bereits gebucht oder inzwischen geändert."
+        case .purchasePause: return "Die Kaufpause von 48 Stunden ist noch nicht abgelaufen."
+        case .budgetProtected: return "Dieser Wunsch passt derzeit nicht in deinen geschützten Plan."
+        case .emergencyFunds: return "Bitte Notfalltopf und Guthaben prüfen. Der Betrag übersteigt die verfügbare Notfallreserve."
         case .invalidEndDate: return "Die letzte Zahlung darf nicht vor dem ersten Zahlungstermin liegen."
         case .notDue: return "Dieser Termin liegt noch in der Zukunft."
         case .invalidBackup: return "Die gespeicherten Daten haben ein unbekanntes Format."
@@ -54,9 +57,12 @@ public struct Expense: Codable, Identifiable, Equatable {
     public var cents: Int
     public var category: String
     public var date: Date
+    public var merchant: String? = nil
+    public var purpose: ExpensePurpose? = nil
+    public var fundingPotID: UUID? = nil
 }
 public struct Budget: Codable, Equatable {
-    public var schema = 2
+    public var schema = 3
     public var setupComplete = false
     public var balance = 0
     public var fixedCosts = 0
@@ -65,54 +71,70 @@ public struct Budget: Codable, Equatable {
     public var expenses: [Expense] = []
     public var payments: [RecurringPayment] = []
     public var recurringRecords: [RecurringRecord] = []
+    public var assistant = AssistantSettings()
+    public var wishes: [PurchaseWish] = []
+    public var reserveMovements: [ReserveMovement] = []
     public init() {}
-    enum CodingKeys: String, CodingKey { case schema, setupComplete, balance, fixedCosts, weeklyLimit, pots, expenses, payments, recurringRecords }
+    enum CodingKeys: String, CodingKey { case schema, setupComplete, balance, fixedCosts, weeklyLimit, pots, expenses, payments, recurringRecords, assistant, wishes, reserveMovements }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let oldSchema = try c.decode(Int.self, forKey: .schema)
-        guard oldSchema == 1 || oldSchema == 2 else { throw BudgetError.invalidBackup }
-        schema = 2
+        guard (1...3).contains(oldSchema) else { throw BudgetError.invalidBackup }
+        schema = 3
         setupComplete = try c.decode(Bool.self, forKey: .setupComplete)
         balance = try c.decode(Int.self, forKey: .balance)
         fixedCosts = try c.decode(Int.self, forKey: .fixedCosts)
         weeklyLimit = try c.decode(Int.self, forKey: .weeklyLimit)
         pots = try c.decode([SavingPot].self, forKey: .pots)
         expenses = try c.decode([Expense].self, forKey: .expenses)
-        if oldSchema == 2 {
+        if oldSchema >= 2 {
             payments = try c.decode([RecurringPayment].self, forKey: .payments)
             recurringRecords = try c.decode([RecurringRecord].self, forKey: .recurringRecords)
+        }
+        if oldSchema == 3 {
+            assistant = try c.decode(AssistantSettings.self, forKey: .assistant)
+            wishes = try c.decode([PurchaseWish].self, forKey: .wishes)
+            reserveMovements = try c.decode([ReserveMovement].self, forKey: .reserveMovements)
         }
     }
     public var reserved: Int { pots.reduce(0) { $0 + $1.cents } }
     public var available: Int { available(now: Date()) }
     public func weeklySpent(now: Date = Date(), calendar: Calendar = Calendar(identifier: .iso8601)) -> Int {
         guard let interval = calendar.dateInterval(of: .weekOfYear, for: now) else { return 0 }
-        return expenses.filter { $0.date >= interval.start && $0.date < interval.end }.reduce(0) { $0 + $1.cents }
+        return expenses.filter { $0.date >= interval.start && $0.date < interval.end && $0.fundingPotID == nil }.reduce(0) { $0 + $1.cents }
     }
     public func weeklyRemaining(now: Date = Date(), calendar: Calendar = Calendar(identifier: .iso8601)) -> Int {
         min(weeklyLimit - weeklySpent(now: now, calendar: calendar), available(now: now, calendar: calendar))
     }
-    public mutating func addExpense(cents: Int, title: String, category: String, date: Date = Date()) throws {
+    public mutating func addExpense(cents: Int, title: String, category: String, date: Date = Date(), merchant: String? = nil, purpose: ExpensePurpose? = nil) throws {
         guard cents > 0, cents <= Euro.limit else { throw BudgetError.invalidAmount }
         guard cents <= balance else { throw BudgetError.insufficientFunds }
         balance -= cents
-        expenses.insert(.init(title: title.isEmpty ? category : title, cents: cents, category: category, date: date), at: 0)
+        expenses.insert(.init(title: title.isEmpty ? category : title, cents: cents, category: category, date: date, merchant: merchant, purpose: purpose), at: 0)
     }
     public mutating func undoExpense(id: UUID) {
         guard let i = expenses.firstIndex(where: { $0.id == id }) else { return }
-        balance += expenses.remove(at: i).cents
+        let e = expenses.remove(at: i)
+        balance += e.cents
+        if let id = e.fundingPotID, let p = pots.firstIndex(where: { $0.id == id }) {
+            pots[p].cents += e.cents
+            reserveMovements.insert(.init(cents: e.cents, date: Date(), emergency: true), at: 0)
+        }
     }
     public mutating func allocate(cents: Int, potID: UUID) throws {
         guard cents > 0 else { throw BudgetError.invalidAmount }
         guard cents <= available else { throw BudgetError.insufficientFunds }
         guard let i = pots.firstIndex(where: { $0.id == potID }) else { throw BudgetError.missingPot }
         pots[i].cents += cents
+        assistant.extraSavings = max(0, assistant.extraSavings - cents)
+        reserveMovements.insert(.init(cents: cents, date: Date(), emergency: false), at: 0)
     }
     public mutating func release(cents: Int, potID: UUID) throws {
         guard cents > 0 else { throw BudgetError.invalidAmount }
         guard let i = pots.firstIndex(where: { $0.id == potID }) else { throw BudgetError.missingPot }
         guard cents <= pots[i].cents else { throw BudgetError.insufficientFunds }
         pots[i].cents -= cents
+        reserveMovements.insert(.init(cents: -cents, date: Date(), emergency: false), at: 0)
     }
     public static func demo() -> Budget {
         var b = Budget(); b.setupComplete = true; b.balance = 218_000; b.fixedCosts = 37_000
@@ -120,7 +142,7 @@ public struct Budget: Codable, Equatable {
         return b
     }
     public func validated() throws -> Budget {
-        guard schema == 2, balance >= 0, balance <= Euro.limit, fixedCosts >= 0, fixedCosts <= Euro.limit,
+        guard schema == 3, balance >= 0, balance <= Euro.limit, fixedCosts >= 0, fixedCosts <= Euro.limit,
               weeklyLimit > 0, weeklyLimit <= Euro.limit,
               pots.count <= 100, Set(pots.map(\.id)).count == pots.count,
               Set(expenses.map(\.id)).count == expenses.count,
@@ -129,6 +151,12 @@ public struct Budget: Codable, Equatable {
               payments.count <= 1000, Set(payments.map(\.id)).count == payments.count,
               recurringRecords.count <= 100_000, Set(recurringRecords.map(\.id)).count == recurringRecords.count,
               recurringRecords.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit && (0..<12_000).contains($0.occurrence) }) else { throw BudgetError.invalidBackup }
+        guard assistant.essentialWeekly >= 0, assistant.essentialWeekly <= Euro.limit,
+              assistant.safetyBuffer >= 0, assistant.safetyBuffer <= Euro.limit,
+              assistant.extraSavings >= 0, assistant.extraSavings <= Euro.limit,
+              wishes.count <= 1000, Set(wishes.map(\.id)).count == wishes.count,
+              wishes.allSatisfy({ !$0.name.isEmpty && $0.name.count <= 100 && $0.cents > 0 && $0.cents <= Euro.limit }),
+              reserveMovements.count <= 100_000, reserveMovements.allSatisfy({ (-Euro.limit...Euro.limit).contains($0.cents) }) else { throw BudgetError.invalidBackup }
         for payment in payments { _ = try payment.validated() }
         return self
     }

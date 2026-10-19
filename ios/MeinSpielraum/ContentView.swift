@@ -9,8 +9,8 @@ private let secondary = Color(red: 0.68, green: 0.70, blue: 0.75)
 private enum Page: String, CaseIterable { case overview = "Übersicht", household = "Haushalt", pots = "Spartöpfe"
     var icon: String { switch self { case .overview: return "house"; case .household: return "doc.text"; case .pots: return "cylinder.split.1x2" } }
 }
-private enum Editor: Identifiable { case expense, settings, pot(UUID), newPot, payment(PaymentKind, UUID?)
-    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .pot(let id): return id.uuidString; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
+private enum Editor: Identifiable { case expense, settings, assistant, pot(UUID), newPot, payment(PaymentKind, UUID?)
+    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .pot(let id): return id.uuidString; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
 }
 struct ContentView: View {
     @EnvironmentObject private var store: BudgetStore
@@ -26,6 +26,10 @@ struct ContentView: View {
     @State private var removingPayment: RecurringPayment?
     private let dayTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     private var calendar: Calendar { var c = Calendar(identifier: .iso8601); c.timeZone = .current; return c }
+    private var dashboardAnalysis: BudgetAssessment { store.budget.assessment(now: now) }
+    private var dashboardAmount: Int {
+        store.budget.assistant.configured ? dashboardAnalysis.purchaseLimit : store.budget.weeklyRemaining(now: now, calendar: calendar)
+    }
     private var weekLabel: String {
         guard let range = calendar.dateInterval(of: .weekOfYear, for: now), let end = calendar.date(byAdding: .day, value: 6, to: range.start) else { return "Diese Woche" }
         let f = DateFormatter(); f.locale = Locale(identifier: "de_AT"); f.dateFormat = "d. MMM"
@@ -41,6 +45,7 @@ struct ContentView: View {
             Group {
                 switch entry {
                 case .payment(let kind, let id): RecurringEditor(kind: kind, existingID: id)
+                case .assistant: AssistantView()
                 default: EditorView(editor: entry)
                 }
             }.environmentObject(store).preferredColorScheme(.dark)
@@ -119,10 +124,13 @@ struct ContentView: View {
     private var overview: some View {
         VStack(alignment: .leading, spacing: 0) {
             Label(weekLabel, systemImage: "calendar").font(.subheadline).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 12).padding(.vertical, 9).background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15)))
-            Text("Diese Woche verfügbar").font(.system(size: 21, weight: .semibold)).padding(.top, 25)
-            Text(Euro.format(store.budget.weeklyRemaining(now: now, calendar: calendar))).font(.system(size: 65, weight: .bold)).tracking(-2).minimumScaleFactor(0.6).lineLimit(1).foregroundStyle(store.budget.weeklyRemaining(now: now, calendar: calendar) < 0 ? Color.red : mint).padding(.top, 3).padding(.bottom, 20)
+            Text(store.budget.assistant.configured ? "Richtwert für freie Wünsche" : "Diese Woche verfügbar").font(.system(size: 21, weight: .semibold)).padding(.top, 25)
+            Text(Euro.format(dashboardAmount)).font(.system(size: 65, weight: .bold)).tracking(-2).minimumScaleFactor(0.6).lineLimit(1).foregroundStyle(dashboardAmount < 0 ? Color.red : mint).padding(.top, 3).padding(.bottom, 20)
+            if store.budget.assistant.configured {
+                Text(dashboardAnalysis.ready ? "Nach Alltag, Sparplan und Puffer. Schätzung aus deinen Einträgen." : "Bitte Gehaltstag und Plan im Assistenten prüfen.").font(.caption).foregroundStyle(secondary).padding(.bottom, 15)
+            }
             Divider().overlay(Color.white.opacity(0.12))
-            Text("Frei verfügbar").foregroundStyle(secondary).padding(.top, 20)
+            Text(store.budget.assistant.configured ? "Vor Alltags- und Sparplan" : "Frei verfügbar").foregroundStyle(secondary).padding(.top, 20)
             Text(Euro.format(store.budget.available)).font(.system(size: 37, weight: .bold)).tracking(-1).padding(.top, 3)
             VStack(spacing: 13) {
                 ledger("Kontostand", store.budget.balance)
@@ -130,7 +138,18 @@ struct ContentView: View {
                 ledger("Sparreserve", -store.budget.reserved)
             }.padding(.top, 22).padding(.bottom, 15)
             Divider()
-            HStack { Text("Frei verfügbar"); Spacer(); Text(Euro.format(store.budget.available)) }.font(.subheadline.weight(.semibold)).padding(.vertical, 14)
+            HStack { Text(store.budget.assistant.configured ? "Vor Alltags- und Sparplan" : "Frei verfügbar"); Spacer(); Text(Euro.format(store.budget.available)) }.font(.subheadline.weight(.semibold)).padding(.vertical, 14)
+            Divider()
+            Button { editor = .assistant } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "brain.head.profile").font(.title2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Lernender Budget-Assistent").fontWeight(.semibold)
+                        Text(store.budget.assistant.configured ? "Kaufcheck, Plan und deine Rückmeldungen" : "Plan einrichten und aus Ausgaben lernen").font(.caption).foregroundStyle(secondary)
+                    }
+                    Spacer(minLength: 0); Image(systemName: "chevron.right")
+                }.padding(.vertical, 20)
+            }.buttonStyle(.plain).foregroundStyle(mint)
             Divider()
             upcomingPayments
             Text("Spartöpfe").font(.system(size: 23, weight: .bold)).padding(.top, 23).padding(.bottom, 20)
@@ -325,11 +344,13 @@ private struct EditorView: View {
     @State private var amount = ""
     @State private var title = ""
     @State private var category = "Lebensmittel"
+    @State private var merchant = ""
+    @State private var purpose: ExpensePurpose? = nil
     @State private var fixed = ""
     @State private var weekly = ""
     @State private var release = false
     @State private var validation: String?
-    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .payment: return "Zahlung"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
+    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .payment: return "Zahlung"; case .assistant: return "Assistent"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
     var body: some View {
         NavigationStack {
             Form {
@@ -346,6 +367,11 @@ private struct EditorView: View {
                     if case .expense = editor {
                         Section {
                             TextField("Bezeichnung (optional)", text: $title)
+                            TextField("Händler (optional)", text: $merchant)
+                            Picker("Einordnung fürs Lernen", selection: $purpose) {
+                                Text("Noch offen").tag(Optional<ExpensePurpose>.none)
+                                ForEach(ExpensePurpose.allCases) { Text($0.title).tag(Optional($0)) }
+                            }
                             Picker("Kategorie", selection: $category) { ForEach(["Lebensmittel", "Freizeit", "Mobilität", "Wohnen", "Sonstiges"], id: \.self) { Text($0) } }
                         }
                         Text("Die Ausgabe reduziert deinen Kontostand. Fixkosten mit Termin bitte im Haushalt als bezahlt buchen, damit die Reserve gleichzeitig freigegeben wird.").font(.caption).foregroundStyle(secondary)
@@ -371,10 +397,10 @@ private struct EditorView: View {
                 let f = try Euro.parse(fixed, allowZero: true); let w = try Euro.parse(weekly)
                 if store.change({ $0.balance = cents; $0.fixedCosts = f; $0.weeklyLimit = w; $0.setupComplete = true }) { dismiss() }
             case .expense:
-                if store.change({ try $0.addExpense(cents: cents, title: String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100)), category: category) }) { dismiss() }
+                if store.change({ try $0.addExpense(cents: cents, title: String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100)), category: category, merchant: String(merchant.prefix(100)), purpose: purpose) }) { dismiss() }
             case .pot(let id):
                 if store.change({ b in if release { try b.release(cents: cents, potID: id) } else { try b.allocate(cents: cents, potID: id) } }) { dismiss() }
-            case .payment: return
+            case .payment, .assistant: return
             case .newPot:
                 let name = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
                 guard !name.isEmpty else { validation = "Bitte einen Namen eingeben."; return }
