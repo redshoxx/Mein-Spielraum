@@ -3,17 +3,18 @@ import UniformTypeIdentifiers
 import UIKit
 import Combine
 
-private let mint = Color(red: 0.39, green: 0.95, blue: 0.77)
-private let canvas = Color(red: 0.063, green: 0.071, blue: 0.082)
-private let secondary = Color(red: 0.68, green: 0.70, blue: 0.75)
+private let mint = SpielraumTheme.mint
+private let canvas = SpielraumTheme.canvas
+private let secondary = SpielraumTheme.muted
 private enum Page: String, CaseIterable { case overview = "Übersicht", household = "Haushalt", pots = "Spartöpfe"
     var icon: String { switch self { case .overview: return "house"; case .household: return "doc.text"; case .pots: return "cylinder.split.1x2" } }
 }
-private enum Editor: Identifiable { case expense, settings, assistant, pot(UUID), editPot(UUID), newPot, payment(PaymentKind, UUID?)
-    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .pot(let id): return id.uuidString; case .editPot(let id): return "edit-pot-\(id.uuidString)"; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
+private enum Editor: Identifiable { case expense, settings, assistant, notifications, purchaseGuard, pot(UUID), editPot(UUID), newPot, payment(PaymentKind, UUID?)
+    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .notifications: return "notifications"; case .purchaseGuard: return "purchaseGuard"; case .pot(let id): return id.uuidString; case .editPot(let id): return "edit-pot-\(id.uuidString)"; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
 }
 struct ContentView: View {
     @EnvironmentObject private var store: BudgetStore
+    @EnvironmentObject private var notifications: BudgetNotifications
     @Environment(\.scenePhase) private var phase
     @State private var page = Page.overview
     @State private var editor: Editor?
@@ -46,11 +47,25 @@ struct ContentView: View {
                 switch entry {
                 case .payment(let kind, let id): RecurringEditor(kind: kind, existingID: id)
                 case .assistant: AssistantView()
+                case .notifications: NotificationSettingsView().environmentObject(notifications)
+                case .purchaseGuard: PurchaseGuardView()
                 default: EditorView(editor: entry)
                 }
             }.environmentObject(store).preferredColorScheme(.dark)
         }
         .onReceive(dayTimer) { now = $0 }
+        .onAppear { if !store.loadFailed { notifications.refresh(budget: store.budget) } }
+        .onChange(of: store.budget) { _ in notifications.refresh(budget: store.budget) }
+        .onOpenURL { url in
+            if url.scheme?.lowercased() == "spielraum", url.host?.lowercased() == "kaufcheck" {
+                editor = .purchaseGuard
+            }
+        }
+        .onReceive(notifications.$route.compactMap { $0 }) { route in
+            if route == "payments" { editor = nil; page = .household }
+            else { editor = route == "wish" ? .assistant : .purchaseGuard }
+            notifications.route = nil
+        }
         .confirmationDialog("Termin buchen?", isPresented: Binding(get: { pendingPayment != nil }, set: { if !$0 { pendingPayment = nil } }), titleVisibility: .visible) {
             if let p = pendingPayment {
                 Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") {
@@ -71,7 +86,7 @@ struct ContentView: View {
         .alert("Hinweis", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("OK", role: .cancel) { store.error = nil }
         } message: { Text(store.error ?? "") }
-        .onChange(of: phase) { value in if value == .active { now = Date() } }
+        .onChange(of: phase) { value in if value == .active { now = Date(); if !store.loadFailed { notifications.refresh(budget: store.budget) } } }
         .fileImporter(isPresented: $importBackup, allowedContentTypes: [.json]) { result in
             do {
                 let url = try result.get(); let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
@@ -105,9 +120,13 @@ struct ContentView: View {
                     Button { page = .overview; now = Date() } label: { Label("Übersicht", systemImage: "chevron.left").frame(minHeight: 44) }.accessibilityLabel("Zurück zur Übersicht")
                 }
                 HStack {
-                    Text(page == .overview ? "Mein Spielraum" : page.rawValue).font(.system(size: 29, weight: .bold)).tracking(-0.8)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("MEIN SPIELRAUM").font(.system(size: 10, weight: .bold)).tracking(2.6).foregroundStyle(mint)
+                        Text(page == .overview ? "Dein Überblick" : page.rawValue).font(.system(size: 28, weight: .bold, design: .rounded)).tracking(-0.7)
+                    }
                     Spacer(minLength: 0)
                     if page == .overview {
+                        Button { editor = .notifications } label: { Image(systemName: "bell").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Benachrichtigungen öffnen")
                         Button { page = .household; now = Date() } label: { Image(systemName: "gearshape").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Haushalt und Einstellungen öffnen")
                     }
                     if page == .household { Button { editor = .settings } label: { Image(systemName: "slider.horizontal.3").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Budget bearbeiten") }
@@ -122,40 +141,60 @@ struct ContentView: View {
         }
     }
     private var overview: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Label(weekLabel, systemImage: "calendar").font(.subheadline).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 12).padding(.vertical, 9).background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15)))
-            Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Richtwert für freie Wünsche" : "Diese Woche verfügbar").font(.system(size: 21, weight: .semibold)).padding(.top, 25)
-            Text(Euro.format(dashboardAmount)).font(.system(size: 65, weight: .bold)).tracking(-2).minimumScaleFactor(0.6).lineLimit(1).foregroundStyle(dashboardAmount < 0 ? Color.red : mint).padding(.top, 3).padding(.bottom, 20)
-            if store.budget.assistant.usesAutomatic || store.budget.assistant.configured {
-                Text(dashboardAnalysis.ready ? "Nach Alltag, Sparplan und Puffer. Schätzung aus deinen Einträgen." : "Bitte Gehaltstag und Plan im Assistenten prüfen.").font(.caption).foregroundStyle(secondary).padding(.bottom, 15)
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 15) {
+                HStack {
+                    Label("DEIN SPIELRAUM", systemImage: "sparkle").font(.caption.weight(.bold)).tracking(1.3)
+                    Spacer()
+                    Text(weekLabel).font(.caption.weight(.medium))
+                }
+                Text(Euro.format(dashboardAmount)).font(.system(size: 58, weight: .bold, design: .rounded)).tracking(-2).minimumScaleFactor(0.4).lineLimit(1)
+                Text("Richtwert für freie Wünsche").font(.headline)
+                Text(dashboardAnalysis.ready ? "Alltag, Fixkosten, Sparreserve und Puffer berücksichtigt. Eine Schätzung aus deinen Einträgen." : dashboardAnalysis.explanation).font(.caption).lineSpacing(3).opacity(0.8)
+                HStack(spacing: 6) { Image(systemName: "lock.shield"); Text("Deine Reserven bleiben geschützt") }.font(.caption.weight(.semibold))
+            }.foregroundStyle(Color(red: 0.04, green: 0.16, blue: 0.12)).padding(23).frame(maxWidth: .infinity, alignment: .leading)
+                .background(LinearGradient(colors: [mint, Color(red: 0.74, green: 0.98, blue: 0.79)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 23))
+            HStack(alignment: .top, spacing: 12) {
+                metric("Kontostand", amount: store.budget.balance, icon: "creditcard")
+                metric("In Spartöpfen", amount: store.budget.reserved, icon: "leaf")
             }
-            Divider().overlay(Color.white.opacity(0.12))
-            Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Vor Alltags- und Sparplan" : "Frei verfügbar").foregroundStyle(secondary).padding(.top, 20)
-            Text(Euro.format(store.budget.available)).font(.system(size: 37, weight: .bold)).tracking(-1).padding(.top, 3)
-            VStack(spacing: 13) {
-                ledger("Kontostand", store.budget.balance)
-                ledger("Fixkosten bis Monatsende", -store.budget.fixedReserve(now: now))
-                ledger("Sparreserve", -store.budget.reserved)
-            }.padding(.top, 22).padding(.bottom, 15)
-            Divider()
-            HStack { Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Vor Alltags- und Sparplan" : "Frei verfügbar"); Spacer(); Text(Euro.format(store.budget.available)) }.font(.subheadline.weight(.semibold)).padding(.vertical, 14)
-            Divider()
-            Button { editor = .assistant } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "brain.head.profile").font(.title2)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Lernender Budget-Assistent").fontWeight(.semibold)
-                        Text((store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? "Automatische Übersicht und Kaufcheck" : "Automatisch aus deinen Einträgen lernen").font(.caption).foregroundStyle(secondary)
+            Button { editor = .purchaseGuard } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "hand.raised.fill").font(.title2).foregroundStyle(mint).frame(width: 42, height: 48)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Vor dem Kaufen kurz stoppen").font(.headline).foregroundStyle(.white)
+                        Text("Preis prüfen. Wunsch vormerken. Abstand gewinnen.").font(.caption).foregroundStyle(secondary)
                     }
-                    Spacer(minLength: 0); Image(systemName: "chevron.right")
-                }.padding(.vertical, 20)
-            }.buttonStyle(.plain).foregroundStyle(mint)
-            Divider()
-            upcomingPayments
-            Text("Spartöpfe").font(.system(size: 23, weight: .bold)).padding(.top, 23).padding(.bottom, 20)
+                    Spacer(minLength: 0); Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(mint)
+                }.frame(maxWidth: .infinity, alignment: .leading).budgetCard()
+            }.buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Dein Geld, aufgeteilt").font(.headline)
+                ledger("Fixkosten bis Monatsende", store.budget.fixedReserve(now: now))
+                ledger("Vor Alltag und Puffer verfügbar", store.budget.available)
+                Text("Wochenlimit: \(Euro.format(store.budget.weeklyLimit)) · Wird durch Lernen nicht angehoben.").font(.caption).foregroundStyle(secondary)
+            }.budgetCard()
+            Button { editor = .assistant } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "brain.head.profile").font(.title2).foregroundStyle(mint)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Dein Budget denkt mit").font(.headline).foregroundStyle(.white)
+                        Text("Automatische Einschätzung & Kaufcheck").font(.caption).foregroundStyle(secondary)
+                    }
+                    Spacer(minLength: 0); Image(systemName: "arrow.up.right").foregroundStyle(mint)
+                }.frame(maxWidth: .infinity).budgetCard()
+            }.buttonStyle(.plain)
+            upcomingPayments.budgetCard()
+            HStack { Text("Deine Spartöpfe").font(.title2.bold()); Spacer(); Button { editor = .newPot } label: { Image(systemName: "plus").frame(width: 44, height: 44) }.accessibilityLabel("Spartopf hinzufügen") }
             potRows
-            Text("Wochenlimit: \(Euro.format(store.budget.weeklyLimit)). Maximal das frei verfügbare Geld.").font(.caption).foregroundStyle(secondary).padding(.top, 20)
-        }
+        }.padding(.top, 8)
+    }
+    private func metric(_ title: String, amount: Int, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: icon).font(.subheadline).foregroundStyle(mint)
+            Text(title).font(.caption).foregroundStyle(secondary)
+            Text(Euro.format(amount)).font(.system(size: 22, weight: .bold, design: .rounded)).minimumScaleFactor(0.5).lineLimit(1)
+        }.frame(maxWidth: .infinity, alignment: .leading).budgetCard()
     }
     private var upcomingPayments: some View {
         let items = store.budget.upcomingFixedPayments(now: now, calendar: calendar)
@@ -194,7 +233,7 @@ struct ContentView: View {
         HStack { Text(title).foregroundStyle(secondary); Spacer(); Text(Euro.format(amount)).monospacedDigit() }.font(.body)
     }
     private var potRows: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 14) {
             ForEach(store.budget.pots) { p in
                 HStack(spacing: 8) {
                 Button { editor = .pot(p.id) } label: {
@@ -206,7 +245,7 @@ struct ContentView: View {
                     Button { editor = .editPot(p.id) } label: {
                         Image(systemName: "pencil").frame(width: 44, height: 44)
                     }.accessibilityLabel("\(p.name) bearbeiten oder löschen")
-                }
+                }.budgetCard()
             }
         }
     }
@@ -239,6 +278,8 @@ struct ContentView: View {
                 }
                 Divider()
             }
+            Button("Benachrichtigungen", systemImage: "bell.badge") { editor = .notifications }
+            Button("Kaufbremse & Amazon einrichten", systemImage: "hand.raised") { editor = .purchaseGuard }
             Text("Datensicherung").font(.headline).padding(.top, 10)
             Button("Backup erstellen", systemImage: "square.and.arrow.up") {
                 do { exported = try store.exportURL() } catch { store.error = error.localizedDescription }
@@ -339,7 +380,7 @@ struct ContentView: View {
 }
 private struct MintButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 17, weight: .bold)).foregroundStyle(Color.black.opacity(0.9)).frame(maxWidth: .infinity).padding(.vertical, 15).background(mint.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: 5))
+        configuration.label.font(.system(size: 17, weight: .bold)).foregroundStyle(Color.black.opacity(0.9)).frame(maxWidth: .infinity).padding(.vertical, 15).background(mint.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: 14))
     }
 }
 private struct EditorView: View {
@@ -356,7 +397,7 @@ private struct EditorView: View {
     @State private var confirmDelete = false
     @State private var release = false
     @State private var validation: String?
-    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .editPot: return "Spartopf bearbeiten"; case .payment: return "Zahlung"; case .assistant: return "Assistent"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
+    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .editPot: return "Spartopf bearbeiten"; case .payment: return "Zahlung"; case .assistant: return "Assistent"; case .notifications: return "Benachrichtigungen"; case .purchaseGuard: return "Kaufbremse"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
     var body: some View {
         NavigationStack {
             Form {
@@ -440,7 +481,7 @@ private struct EditorView: View {
             case .editPot(let id):
                 if store.change({ try $0.updatePot(id: id, name: title, target: cents) }) { dismiss() }
                 else { validation = store.error }
-            case .payment, .assistant: return
+            case .payment, .assistant, .notifications, .purchaseGuard: return
             case .newPot:
                 let name = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
                 guard !name.isEmpty else { validation = "Bitte einen Namen eingeben."; return }

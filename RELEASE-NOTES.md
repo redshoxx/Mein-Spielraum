@@ -1,8 +1,9 @@
-Automatischer Budget-Assistent ohne Pflichtplan
+Neue Gestaltung, Benachrichtigungen und Kaufbremse
 
-- Startet sofort mit vorhandenen Einnahmen, Fixkosten, Spartöpfen und Ausgaben.
-- Nächster Einnahmetermin wird aus bestehenden monatlichen Terminen fortgeschrieben, ohne Geld zu buchen. Ohne Termin gilt ein sichtbar gekennzeichneter Zeitraum von 30 Tagen.
-- Lernt Alltagsbedarf auch aus unmarkierten Ausgaben. Rückmeldungen sind freiwillig.
-- Bei wenig Historie werden Wochenlimit und eine zusätzliche Woche Puffer geschützt. Optionale Mindestbeträge bleiben bestehen.
-- Keine Bankanbindung: Es werden nur Einträge in der App ausgewertet.
-- Manuelle Vorgaben bleiben optional; bestehende Daten sind kompatibel.
+- Neue Übersicht in Graphit und Mint: Budgetkarte, kompakte Kontokarten und übersichtliche Spartöpfe.
+- Glocke für aktivierbare lokale Erinnerungen: nächste Fixkosten, 48-Stunden-Kaufpause und täglicher Budgetcheck um 18 Uhr.
+- Keine Beträge oder Händlernamen auf dem Sperrbildschirm. iOS-Mitteilungen müssen erlaubt werden.
+- Freiwillige Kaufbremse mit 15 Sekunden Abstand, aktuellem Budget und Preischeck.
+- spielraum://kaufcheck öffnet die Kaufbremse, z. B. über eine selbst eingerichtete Kurzbefehle-Automation beim Öffnen von Amazon. Anleitung in der App.
+- Keine Überwachung von Warenkörben, keine Amazon- oder Zahlungssperre. Bildschirmzeit-App-Limits werden direkt in iOS eingerichtet.
+- Daten bleiben kompatibel; bestehende Finanzdaten und Haushaltsnavigation bleiben erhalten.

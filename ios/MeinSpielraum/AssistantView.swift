@@ -2,11 +2,12 @@ import SwiftUI
 import UIKit
 import Combine
 
-private let assistMint = Color(red: 0.39, green: 0.95, blue: 0.77)
+private let assistMint = SpielraumTheme.mint
 struct AssistantView: View {
     @EnvironmentObject private var store: BudgetStore
     @Environment(\.dismiss) private var dismiss
-    @State private var tab = 0
+    @State private var tab: Int
+    init(initialTab: Int = 0) { _tab = State(initialValue: initialTab) }
     @State private var settingsOpen = false
     @State private var amount = ""
     @State private var name = ""

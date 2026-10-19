@@ -22,6 +22,9 @@ def build_source(ipa: Path, repository: str, version: str) -> dict:
         info = plistlib.loads(archive.read(plists[0]))
         if info.get('CFBundleIdentifier') != BUNDLE_ID or info.get('CFBundleShortVersionString') != version:
             raise ValueError('Built IPA identifier or version does not match source')
+        schemes = [scheme for item in info.get('CFBundleURLTypes', []) for scheme in item.get('CFBundleURLSchemes', [])]
+        if 'spielraum' not in schemes:
+            raise ValueError('IPA is missing the purchase-check URL scheme')
         executable = info.get('CFBundleExecutable', '')
         root = plists[0].removesuffix('Info.plist')
         if not executable or root + executable not in archive.namelist():
