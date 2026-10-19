@@ -2,9 +2,9 @@
 
 Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Dunkles Design mit mintgrünen Akzenten. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
 
-**Stand:** Version 0.2.2 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 15 Swift-Tests und 3 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
+**Stand:** Version 0.2.3 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 20 Swift-Tests und 3 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
 
-**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39264624579)
+**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39266505852)
 
 ## Einmalige GitHub-Einrichtung
 
@@ -24,7 +24,7 @@ Nach dem ersten erfolgreichen Release:
 
 In SideStore im Bereich **Sources/Quellen** die Source-URL hinzufügen, dann „Mein Spielraum“ installieren. Alternativ die IPA in Safari laden und in SideStore importieren. SideStore muss bereits korrekt auf dem iPhone eingerichtet sein; seine Signierungs-, Geräte- und Netzwerkanforderungen gelten weiterhin.
 
-Die aktuellen Assets wurden im Release v0.2.2 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
+Die aktuellen Assets wurden im Release v0.2.3 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
 
 ## Neue Versionen
 
@@ -60,7 +60,7 @@ Auf macOS mit Xcode und Homebrew:
 
 Für den Simulator den generierten Scheme `MeinSpielraum` wählen. Für einen signierten Direktstart auf einem eigenen iPhone in Xcode ein eigenes Team konfigurieren; für den GitHub-/SideStore-Weg ist das nicht nötig.
 
-Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 15 Swift-Tests, drei Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.2.2 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
+Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 20 Swift-Tests, drei Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.2.3 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
 
 ## Verwendete Dokumentation
 
