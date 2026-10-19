@@ -1,9 +1,9 @@
-# Prüfstand · Version 0.3.9
+# Prüfstand · Version 0.3.10
 
-Build: https://github.com/redshoxx/Mein-Spielraum/actions/runs/39276562638
-Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.3.9
+Build: https://github.com/redshoxx/Mein-Spielraum/actions/runs/39337697775
+Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.3.10
 
-- 52 Swift-Tests bestanden, einschließlich 12 Assistent-Tests.
+- 68 Swift-Tests bestanden, einschließlich 12 Assistent-Tests.
 - 4 Python-Source-Tests bestanden.
 - Xcode-Gerätebuild und IPA-Metadatenprüfung erfolgreich.
 - IPA, SideStore-Source, Icon und Prüfsumme veröffentlicht.
@@ -36,3 +36,11 @@ Sechs zusätzliche Swift-Tests prüfen den Start ohne Konfiguration, vorsichtige
 Sechs zusätzliche Swift-Tests prüfen Erinnerungsdaten mit lokalen Uhrzeiten, generische Texte ohne Finanzdetails, bezahlte/entfernte/abgeschlossene Posten, Zusammenfassung überfälliger Posten ohne Einkommen als Rechnung, 48-Stunden-Kaufpause ohne Wiederholung alter Wünsche, Abschalten, Zeithorizont, Begrenzung auf 58 Einzelhinweise und die Zeitumstellung in Wien. Der zusätzliche Python-Test lehnt IPAs ohne Kaufcheck-URL-Schema ab; der Paketgenerator prüft dieses Schema im tatsächlichen Gerätebuild.
 
 Nicht auf echtem iPhone geprüft: visuelles Layout, Systemdialog für Mitteilungen, Zustellung/Tap-Routing, Kurzbefehle-Automation, Deep-Link aus Amazon und Interaktionen mit Fokus/Bildschirmzeit. Keine Behauptung einer Warenkorb-Erkennung oder App-/Zahlungssperre. Die Kaufbremse ist freiwillig; die 15 Sekunden verzögern nur den Kaufcheck in ihrer Ansicht. Keine Bildschirmzeit-Entitlements oder Amazon-Anbindung hinzugefügt.
+
+## Stabilität, Speichern und Performance
+
+16 zusätzliche Swift-Tests: sieben Dateispeicher-Tests (Neustart, zwei vorherige Stände, beschädigte/fehlende/übergroße Hauptdatei, kaputte erste Sicherung, explizite Wiederherstellung mit Erhalt der alten Datei, ungültige Schreibvorgänge und blockiertes Ziel, externes Backup sowie unveränderter Stand ohne Sicherungsverlust), fünf Tests für Ausgabenkorrekturen einschließlich Notfallreserve/Undo/gelöschtem Topf und ungültigen Datumswerten, vier Berechnungstests (Vergleich schneller Terminberechnung mit Schleifenreferenz bei Monatsenden/Schaltjahren/Endtermin, künftiges Gehalt, 5.600 Ausgaben und Euro-Nachkommastellen).
+
+Laden und Backup-Prüfung sowie Speichern aus den primären Bearbeitungsformularen laufen außerhalb des Main Actors. Finanzieller UI-Zustand wird erst nach erfolgreichem Schreiben veröffentlicht; Fehler lassen den bisherigen Zustand bestehen. Kleinere direkte Buchungsaktionen bleiben synchron. Zwei lokale Vorgängerkopien und vollständiger iOS-Dateischutz für neue Speicherungen/Exporte sind implementiert. Keine Behauptung einer separaten App-Verschlüsselung oder eines Offsite-Backups.
+
+Nicht auf echtem Gerät geprüft: tatsächliche Start-/Bearbeitungszeiten, Verhalten bei iPhone-Sperre und geschützten Dateien, Systemabbruch während eines Schreibvorgangs, Wiederherstellungsdialoge und neue Ausgabenformulare. Es gibt keinen gemessenen prozentualen Geschwindigkeitsgewinn. Native Bildschirm- und Bedienprüfung weiterhin ausstehend.

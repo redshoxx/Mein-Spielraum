@@ -2,7 +2,7 @@
 
 Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Dunkles Design mit mintgrünen Akzenten. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
 
-**Stand:** Version 0.3.9 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 52 Swift-Tests und 4 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
+**Stand:** Version 0.3.10 wurde am 20.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 68 Swift-Tests und 4 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
 
 **Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39271037563)
 
@@ -24,7 +24,7 @@ Nach dem ersten erfolgreichen Release:
 
 In SideStore im Bereich **Sources/Quellen** die Source-URL hinzufügen, dann „Mein Spielraum“ installieren. Alternativ die IPA in Safari laden und in SideStore importieren. SideStore muss bereits korrekt auf dem iPhone eingerichtet sein; seine Signierungs-, Geräte- und Netzwerkanforderungen gelten weiterhin.
 
-Die aktuellen Assets wurden im Release v0.3.9 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
+Die aktuellen Assets wurden im Release v0.3.10 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
 
 ## Neue Versionen
 
@@ -101,6 +101,17 @@ Die genaue Benennung kann je nach iOS-Version abweichen. Die App zeigt diese Anl
 
 **Grenze:** Die App erkennt keine Warenkorb-Aktion, Artikelpreise oder Bezahlvorgänge in Amazon. iOS isoliert andere Apps. Systemweite App-Sperren über Family Controls erfordern besondere Apple-Entitlements; diese SideStore-Version besitzt sie nicht. App-Limits können direkt unter **iPhone-Einstellungen → Bildschirmzeit → App-Limits** eingerichtet werden; deren Wirksamkeit hängt von der iOS-Konfiguration ab. Es gibt keine automatische Bank- oder Zahlungssperre.
 
+## Stabilität, Bearbeiten und Datensicherung
+
+- Start und Backup-Prüfung laufen im Hintergrund mit Ladeanzeige. In Ausgaben-, Spartopf-, Budget- und Terminformularen wird ebenfalls im Hintergrund validiert und gespeichert. Währenddessen werden doppelte Eingaben und das Wegwischen des Formulars verhindert; erst ein erfolgreicher atomarer Schreibvorgang bestätigt die Änderung. Andere kleine Buchungsaktionen schreiben weiterhin synchron.
+- Euro-Formatierer werden wiederverwendet. Die Budgetauswertung wird pro Minute zwischengespeichert und bei jeder Änderung verworfen. Zahlungssummen werden anhand der Monate berechnet, statt alte Termine einzeln zu durchlaufen. Die Historie zeigt zunächst 30 Ausgaben, weitere bleiben nachladbar. Alle Einträge bleiben gespeichert.
+- **Haushalt → Ausgaben → … → Bearbeiten** korrigiert Name, Betrag, Händler, Kategorie und Einordnung bei gleichem Eintrag und Datum. Nur die Betragsdifferenz wird verrechnet. Bei einer Notfallausgabe wird eine vorhandene Notfallreserve entsprechend abgeglichen. Nach Topflöschung sind Rückerstattungen möglich, weitere Entnahmen daraus werden abgelehnt. Zwischenzeitlich geänderte Einträge müssen neu geöffnet werden.
+- Neben `spielraum-v1.json` entstehen beim Ändern bis zu zwei vorherige geprüfte Stände (`spielraum-previous.json`, `spielraum-recovery.json`). Neue Speicherdateien und Exporte nutzen vollständigen iOS-Dateischutz. Es gibt keinen neuen Cloud-Dienst und kein separates Verschlüsselungspasswort.
+- Bei einer beschädigten oder fehlenden Hauptdatei erscheinen keine leeren Ersatzdaten. Die App bietet eine geprüfte vorhandene Sicherung zur ausdrücklichen Wiederherstellung an oder akzeptiert ein externes Backup aus Dateien. Die bisherige Hauptdatei wird vor dem Ersetzen separat aufbewahrt. Ein früherer Stand kann jüngste Änderungen noch nicht enthalten.
+- Import und Speicherung haben dieselbe Grenze von 32 MB. Unplausible Datumseinträge und ungültige Geldwerte werden abgelehnt. Lokale Kopien schützen nicht bei Verlust oder Löschen des iPhones: regelmäßig über **Backup erstellen** extern sichern. Geteilte JSON-Backups sind lesbar und sollten privat aufbewahrt werden.
+
+Eine Beschleunigung in Prozent oder eine bestimmte Startzeit auf dem iPhone 12 wurde nicht gemessen. Die Änderungen reduzieren bekannte Arbeit auf der Oberfläche; eine native Bedien- und Lastprüfung bleibt ausstehend.
+
 ## Entwicklung und Prüfungen
 
 Auf macOS mit Xcode und Homebrew:
@@ -113,7 +124,7 @@ Auf macOS mit Xcode und Homebrew:
 
 Für den Simulator den generierten Scheme `MeinSpielraum` wählen. Für einen signierten Direktstart auf einem eigenen iPhone in Xcode ein eigenes Team konfigurieren; für den GitHub-/SideStore-Weg ist das nicht nötig.
 
-Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 52 Swift-Tests, vier Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.9 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
+Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 68 Swift-Tests, vier Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.10 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
 
 ## Verwendete Dokumentation
 
