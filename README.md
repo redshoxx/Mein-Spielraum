@@ -2,7 +2,9 @@
 
 Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Dunkles Design mit mintgrünen Akzenten. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
 
-**Stand:** Quellprojekt vorbereitet. Der macOS-/Xcode-Build und ein Test auf dem iPhone stehen noch aus. Die beiliegende ZIP ist keine IPA. Ein Downloadlink und eine funktionierende Source entstehen erst nach dem ersten erfolgreichen GitHub-Release.
+**Stand:** Version 0.1.1 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. Fünf Swift-Rechenkern-Tests und drei Python-Source-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
+
+**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39246691716)
 
 ## Einmalige GitHub-Einrichtung
 
@@ -22,7 +24,7 @@ Nach dem ersten erfolgreichen Release:
 
 In SideStore im Bereich **Sources/Quellen** die Source-URL hinzufügen, dann „Mein Spielraum“ installieren. Alternativ die IPA in Safari laden und in SideStore importieren. SideStore muss bereits korrekt auf dem iPhone eingerichtet sein; seine Signierungs-, Geräte- und Netzwerkanforderungen gelten weiterhin.
 
-Die URLs sind hier das geplante Ziel, keine Bestätigung, dass sie bereits existieren. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem anderen Namen die Installationslinks entsprechend anpassen.
+Die Assets wurden im Release v0.1.1 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
 
 ## Neue Versionen
 
@@ -52,7 +54,7 @@ Auf macOS mit Xcode und Homebrew:
 
 Für den Simulator den generierten Scheme `MeinSpielraum` wählen. Für einen signierten Direktstart auf einem eigenen iPhone in Xcode ein eigenes Team konfigurieren; für den GitHub-/SideStore-Weg ist das nicht nötig.
 
-Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. Drei Python-Tests des Source-Generators wurden in der Erstellungsumgebung erfolgreich ausgeführt. Swift-/Xcode-Tests konnten dort mangels macOS/Xcode nicht ausgeführt werden und laufen zuerst in GitHub Actions.
+Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. Fünf Swift-Tests, drei Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen im ersten GitHub-Actions-Workflow erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
 
 ## Verwendete Dokumentation
 

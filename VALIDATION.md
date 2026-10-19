@@ -1,12 +1,15 @@
-# Prüfstand
+# Prüfstand · Version 0.1.1
 
+GitHub-Actions-Lauf: https://github.com/redshoxx/Mein-Spielraum/actions/runs/39246691716
+Quellcommit: 3cf541f611362d9c54dea4f3bed92c9ea0703f3a
+Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.1.1
+Datum: 19.10.2026
+
+- Swift-Rechenkern: 5 Tests bestanden.
 - Python Source-Generator: 3 Tests bestanden.
-- Workflow-YAML, XcodeGen-Spezifikation, JSON-Assets: lokal statisch geprüft.
-- Swift-Tests: vorbereitet, hier mangels Swift-Compiler nicht ausgeführt.
-- Xcode-Gerätebuild: mangels macOS nicht ausgeführt; erster GitHub-Actions-Lauf ausstehend.
-- IPA-/SideStore-Installation und native Bildschirmprüfung: ausstehend.
-- Es gibt noch keinen veröffentlichten Build und noch keine erreichbare Source-URL.
+- Xcode 16.4 / iPhoneOS 18.5 SDK / Deployment Target iOS 17.0: Gerätebuild erfolgreich.
+- IPA erstellt, App-Identifier, Versionsnummer und ausführbare Datei geprüft.
+- Release-Assets veröffentlicht: IPA (1.901.971 Bytes), source.json, Icon, Prüfsumme.
+- SideStore-Installation und native Bildschirm-/Bedienprüfung auf echtem iPhone: ausstehend.
 
-Die Python-Tests verwenden absichtlich Test-IPA-Dateien ohne lauffähige iOS-Binärdatei, um Metadatenprüfung und Fehlerfälle zu testen. Sie sind keine iOS-Buildprüfung. Der echte Workflow erstellt und paketiert die Binärdatei erst nach erfolgreichem xcodebuild.
-
-Der Browser-Zugriff auf die frühere Web-Vorschau wurde durch die URL-Sicherheitsrichtlinie blockiert. Es wird keine visuelle Freigabe aus dieser Vorschau auf die native App übertragen.
+Die Python-Tests verwenden Test-IPA-Dateien zur Metadatenprüfung. Der Workflow prüfte anschließend zusätzlich die tatsächlich mit Xcode gebaute IPA. Es wird keine visuelle oder reale Geräteprüfung behauptet.
