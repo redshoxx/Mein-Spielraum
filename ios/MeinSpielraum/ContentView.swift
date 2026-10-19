@@ -9,8 +9,8 @@ private let secondary = Color(red: 0.68, green: 0.70, blue: 0.75)
 private enum Page: String, CaseIterable { case overview = "Übersicht", household = "Haushalt", pots = "Spartöpfe"
     var icon: String { switch self { case .overview: return "house"; case .household: return "doc.text"; case .pots: return "cylinder.split.1x2" } }
 }
-private enum Editor: Identifiable { case expense, settings, assistant, pot(UUID), newPot, payment(PaymentKind, UUID?)
-    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .pot(let id): return id.uuidString; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
+private enum Editor: Identifiable { case expense, settings, assistant, pot(UUID), editPot(UUID), newPot, payment(PaymentKind, UUID?)
+    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .pot(let id): return id.uuidString; case .editPot(let id): return "edit-pot-\(id.uuidString)"; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
 }
 struct ContentView: View {
     @EnvironmentObject private var store: BudgetStore
@@ -196,12 +196,17 @@ struct ContentView: View {
     private var potRows: some View {
         VStack(spacing: 24) {
             ForEach(store.budget.pots) { p in
+                HStack(spacing: 8) {
                 Button { editor = .pot(p.id) } label: {
                     VStack(spacing: 11) {
                         HStack { Text(p.name).fontWeight(.semibold).lineLimit(1); Spacer(); Text(Euro.format(p.cents)).fontWeight(.semibold) + Text(" / \(Euro.format(p.target))").foregroundColor(secondary) }.font(.subheadline)
                         ProgressView(value: min(Double(p.cents), Double(p.target)), total: Double(p.target)).tint(mint).scaleEffect(x: 1, y: 1.8, anchor: .center)
                     }.padding(.vertical, 3).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel("\(p.name), \(Euro.format(p.cents)) von \(Euro.format(p.target)). Geld verwalten.")
+                    Button { editor = .editPot(p.id) } label: {
+                        Image(systemName: "pencil").frame(width: 44, height: 44)
+                    }.accessibilityLabel("\(p.name) bearbeiten oder löschen")
+                }
             }
         }
     }
@@ -348,13 +353,28 @@ private struct EditorView: View {
     @State private var purpose: ExpensePurpose? = nil
     @State private var fixed = ""
     @State private var weekly = ""
+    @State private var confirmDelete = false
     @State private var release = false
     @State private var validation: String?
-    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .payment: return "Zahlung"; case .assistant: return "Assistent"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
+    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .editPot: return "Spartopf bearbeiten"; case .payment: return "Zahlung"; case .assistant: return "Assistent"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
     var body: some View {
         NavigationStack {
             Form {
-                if case .settings = editor {
+                if case .editPot(let id) = editor {
+                    Section("Name und Sparziel") {
+                        TextField("Name des Spartopfs", text: $title).accessibilityLabel("Name des Spartopfs")
+                        field("Sparziel in €", text: $amount)
+                    }
+                    if let pot = store.budget.pots.first(where: { $0.id == id }) {
+                        Section {
+                            LabeledContent("Bereits reserviert", value: Euro.format(pot.cents))
+                            Text("Name und Sparziel ändern den reservierten Betrag nicht. Ein Ziel unter dem bereits gesparten Betrag ist möglich.").font(.caption).foregroundStyle(secondary)
+                        }
+                        Section {
+                            Button("Spartopf löschen", role: .destructive) { confirmDelete = true }
+                        }
+                    }
+                } else if case .settings = editor {
                     Section("Aktuelle Beträge") {
                         field("Kontostand in €", text: $amount)
                         field("Zusätzliche Fixkostenreserve in €", text: $fixed)
@@ -384,7 +404,24 @@ private struct EditorView: View {
             }
             .navigationTitle(heading).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }; ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } } }
-            .onAppear { if case .settings = editor { amount = Euro.editable(store.budget.balance); fixed = Euro.editable(store.budget.fixedCosts); weekly = Euro.editable(store.budget.weeklyLimit) } }
+            .confirmationDialog("Spartopf endgültig löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                if case .editPot(let id) = editor {
+                    Button("Spartopf löschen", role: .destructive) {
+                        if store.change({ try $0.deletePot(id: id) }) { dismiss() }
+                        else { validation = store.error }
+                    }
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                if case .editPot(let id) = editor, let pot = store.budget.pots.first(where: { $0.id == id }) {
+                    Text("\(pot.name) wird gelöscht. \(Euro.format(pot.cents)) werden aus der Reservierung freigegeben. Dein Kontostand bleibt unverändert.\(store.budget.assistant.emergencyPotID == id ? " Dieser Topf ist deine Notfallreserve. Wähle anschließend im Assistenten einen neuen Notfalltopf." : "")")
+                }
+            }
+            .onAppear {
+                if case .editPot(let id) = editor, let pot = store.budget.pots.first(where: { $0.id == id }) {
+                    title = pot.name; amount = Euro.editable(pot.target)
+                }
+                if case .settings = editor { amount = Euro.editable(store.budget.balance); fixed = Euro.editable(store.budget.fixedCosts); weekly = Euro.editable(store.budget.weeklyLimit) } }
         }.tint(mint)
     }
     private var editorIsNewPot: Bool { if case .newPot = editor { return true }; return false }
@@ -400,6 +437,9 @@ private struct EditorView: View {
                 if store.change({ try $0.addExpense(cents: cents, title: String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100)), category: category, merchant: String(merchant.prefix(100)), purpose: purpose) }) { dismiss() }
             case .pot(let id):
                 if store.change({ b in if release { try b.release(cents: cents, potID: id) } else { try b.allocate(cents: cents, potID: id) } }) { dismiss() }
+            case .editPot(let id):
+                if store.change({ try $0.updatePot(id: id, name: title, target: cents) }) { dismiss() }
+                else { validation = store.error }
             case .payment, .assistant: return
             case .newPot:
                 let name = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))

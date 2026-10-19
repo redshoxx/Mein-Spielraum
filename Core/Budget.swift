@@ -1,9 +1,10 @@
 import Foundation
 
 public enum BudgetError: LocalizedError {
-    case invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue, invalidEndDate, purchasePause, budgetProtected, emergencyFunds
+    case invalidPotName, invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue, invalidEndDate, purchasePause, budgetProtected, emergencyFunds
     public var errorDescription: String? {
         switch self {
+        case .invalidPotName: return "Bitte einen Namen mit 1 bis 40 Zeichen eingeben."
         case .invalidAmount: return "Bitte einen gültigen Betrag eingeben (höchstens zwei Nachkommastellen)."
         case .insufficientFunds: return "Dafür ist nicht genug Geld verfügbar."
         case .missingPot: return "Dieser Spartopf ist nicht mehr vorhanden."
@@ -135,6 +136,24 @@ public struct Budget: Codable, Equatable {
         guard cents <= pots[i].cents else { throw BudgetError.insufficientFunds }
         pots[i].cents -= cents
         reserveMovements.insert(.init(cents: -cents, date: Date(), emergency: false), at: 0)
+    }
+    public mutating func updatePot(id: UUID, name: String, target: Int) throws {
+        guard let i = pots.firstIndex(where: { $0.id == id }) else { throw BudgetError.missingPot }
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty, cleanName.count <= 40 else { throw BudgetError.invalidPotName }
+        guard target > 0, target <= Euro.limit else { throw BudgetError.invalidAmount }
+        pots[i].name = cleanName
+        pots[i].target = target
+    }
+    public mutating func deletePot(id: UUID) throws {
+        guard let i = pots.firstIndex(where: { $0.id == id }) else { throw BudgetError.missingPot }
+        let removed = pots.remove(at: i)
+        if removed.cents > 0 {
+            reserveMovements.insert(.init(cents: -removed.cents, date: Date(), emergency: false), at: 0)
+        }
+        if assistant.emergencyPotID == id { assistant.emergencyPotID = nil }
+        // Historical expense references stay intact: emergency spending must not
+        // become ordinary weekly spending when its former pot is deleted.
     }
     public static func demo() -> Budget {
         var b = Budget(); b.setupComplete = true; b.balance = 218_000; b.fixedCosts = 37_000
