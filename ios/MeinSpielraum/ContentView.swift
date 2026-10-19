@@ -9,8 +9,8 @@ private let secondary = SpielraumTheme.muted
 private enum Page: String, CaseIterable { case overview = "Übersicht", household = "Haushalt", pots = "Spartöpfe"
     var icon: String { switch self { case .overview: return "house"; case .household: return "doc.text"; case .pots: return "cylinder.split.1x2" } }
 }
-private enum Editor: Identifiable { case expense, settings, assistant, notifications, purchaseGuard, pot(UUID), editPot(UUID), newPot, payment(PaymentKind, UUID?)
-    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .notifications: return "notifications"; case .purchaseGuard: return "purchaseGuard"; case .pot(let id): return id.uuidString; case .editPot(let id): return "edit-pot-\(id.uuidString)"; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
+private enum Editor: Identifiable { case expense, settings, assistant, wishes, notifications, purchaseGuard, pot(UUID), editPot(UUID), editExpense(UUID), newPot, payment(PaymentKind, UUID?)
+    var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .wishes: return "wishes"; case .notifications: return "notifications"; case .purchaseGuard: return "purchaseGuard"; case .pot(let id): return id.uuidString; case .editPot(let id): return "edit-pot-\(id.uuidString)"; case .editExpense(let id): return "edit-expense-\(id.uuidString)"; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
 }
 struct ContentView: View {
     @EnvironmentObject private var store: BudgetStore
@@ -23,11 +23,15 @@ struct ContentView: View {
     @State private var pendingImport: Budget?
     @State private var exported: URL?
     @State private var showAllUpcoming = false
+    @State private var expenseCount = 30
+    @State private var confirmRecovery = false
+    @State private var isImporting = false
+    @State private var pendingPurchaseGuard = false
     @State private var pendingPayment: RecurringPayment?
     @State private var removingPayment: RecurringPayment?
     private let dayTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     private var calendar: Calendar { var c = Calendar(identifier: .iso8601); c.timeZone = .current; return c }
-    private var dashboardAnalysis: BudgetAssessment { store.budget.assessment(now: now) }
+    private var dashboardAnalysis: BudgetAssessment { store.assessment(now: now) }
     private var dashboardAmount: Int {
         (store.budget.assistant.usesAutomatic || store.budget.assistant.configured) ? dashboardAnalysis.purchaseLimit : store.budget.weeklyRemaining(now: now, calendar: calendar)
     }
@@ -38,7 +42,9 @@ struct ContentView: View {
     }
     var body: some View {
         Group {
-            if !store.budget.setupComplete && !store.loadFailed { welcome }
+            if store.isLoading { ProgressView("Daten werden sicher geladen …").frame(maxWidth: .infinity, maxHeight: .infinity) }
+            else if store.loadFailed { recoveryView }
+            else if !store.budget.setupComplete { welcome }
             else { main }
         }
         .background(canvas.ignoresSafeArea()).tint(mint)
@@ -47,25 +53,33 @@ struct ContentView: View {
                 switch entry {
                 case .payment(let kind, let id): RecurringEditor(kind: kind, existingID: id)
                 case .assistant: AssistantView()
+                case .wishes: AssistantView(initialTab: 1)
                 case .notifications: NotificationSettingsView().environmentObject(notifications)
                 case .purchaseGuard: PurchaseGuardView()
                 default: EditorView(editor: entry)
                 }
             }.environmentObject(store).preferredColorScheme(.dark)
+                .disabled(store.isSaving).interactiveDismissDisabled(store.isSaving)
+                .overlay { if store.isSaving { ProgressView("Wird gespeichert …").padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in if store.loadFailed { store.load() } }
+        .onChange(of: store.isLoading) { if !store.isLoading && !store.loadFailed { notifications.refresh(budget: store.budget); processPendingRoute() } }
+        .onChange(of: store.isSaving) { if !store.isSaving { processPendingRoute() } }
+        .confirmationDialog("Gesicherten Stand wiederherstellen?", isPresented: $confirmRecovery, titleVisibility: .visible) {
+            Button("Sicherung wiederherstellen") { store.restoreRecovery() }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { Text("Es wird der angezeigte frühere Stand geladen. Spätere Änderungen können darin fehlen. Die bisherige Speicherdatei wird zur Sicherheit aufbewahrt.") }
+        .allowsHitTesting(!isImporting && !store.isSaving)
+        .overlay { if isImporting { ProgressView("Backup wird geprüft …").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) } }
         .onReceive(dayTimer) { now = $0 }
-        .onAppear { if !store.loadFailed { notifications.refresh(budget: store.budget) } }
-        .onChange(of: store.budget) { _ in notifications.refresh(budget: store.budget) }
+        .onAppear { if !store.loadFailed && !store.isLoading { notifications.refresh(budget: store.budget) } }
+        .onChange(of: store.budget) { if !store.loadFailed && !store.isLoading { notifications.refresh(budget: store.budget) } }
         .onOpenURL { url in
             if url.scheme?.lowercased() == "spielraum", url.host?.lowercased() == "kaufcheck" {
-                editor = .purchaseGuard
+                pendingPurchaseGuard = true; processPendingRoute()
             }
         }
-        .onReceive(notifications.$route.compactMap { $0 }) { route in
-            if route == "payments" { editor = nil; page = .household }
-            else { editor = route == "wish" ? .assistant : .purchaseGuard }
-            notifications.route = nil
-        }
+        .onReceive(notifications.$route.compactMap { $0 }) { _ in processPendingRoute() }
         .confirmationDialog("Termin buchen?", isPresented: Binding(get: { pendingPayment != nil }, set: { if !$0 { pendingPayment = nil } }), titleVisibility: .visible) {
             if let p = pendingPayment {
                 Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") {
@@ -86,19 +100,53 @@ struct ContentView: View {
         .alert("Hinweis", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("OK", role: .cancel) { store.error = nil }
         } message: { Text(store.error ?? "") }
-        .onChange(of: phase) { value in if value == .active { now = Date(); if !store.loadFailed { notifications.refresh(budget: store.budget) } } }
+        .onChange(of: phase) { _, value in if value == .active { now = Date(); if !store.loadFailed && !store.isLoading { notifications.refresh(budget: store.budget) } } }
         .fileImporter(isPresented: $importBackup, allowedContentTypes: [.json]) { result in
             do {
-                let url = try result.get(); let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
-                let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-                guard ((attributes[.size] as? NSNumber)?.intValue ?? 0) <= 5_000_000 else { throw BudgetError.invalidBackup }
-                pendingImport = try JSONDecoder().decode(Budget.self, from: Data(contentsOf: url)).validated()
-            } catch { store.error = "Backup konnte nicht geöffnet werden: \(error.localizedDescription)" }
+                let url = try result.get()
+                isImporting = true
+                Task {
+                    let access = url.startAccessingSecurityScopedResource()
+                    defer { if access { url.stopAccessingSecurityScopedResource() }; isImporting = false }
+                    let decoded = await Task.detached(priority: .userInitiated) { () -> Result<Budget, Error> in
+                        Result {
+                            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+                            guard ((attributes[.size] as? NSNumber)?.intValue ?? 0) <= BudgetDiskStore.maximumBytes else { throw BudgetStorageError.tooLarge }
+                            return try JSONDecoder().decode(Budget.self, from: Data(contentsOf: url)).validated()
+                        }
+                    }.value
+                    do { pendingImport = try decoded.get() }
+                    catch { store.error = "Backup konnte nicht geöffnet werden: \(error.localizedDescription)" }
+                }
+            } catch { store.error = error.localizedDescription }
         }
         .confirmationDialog("Aktuelle Daten durch das Backup ersetzen?", isPresented: Binding(get: { pendingImport != nil }, set: { if !$0 { pendingImport = nil } }), titleVisibility: .visible) {
-            Button("Backup wiederherstellen", role: .destructive) { if let b = pendingImport { store.change { $0 = b } }; pendingImport = nil }
+            Button("Backup wiederherstellen", role: .destructive) { if let b = pendingImport { if store.loadFailed { store.restoreImported(b) } else { Task { await store.saveChange { $0 = b } } } }; pendingImport = nil }
             Button("Abbrechen", role: .cancel) { pendingImport = nil }
         }
+    }
+    private func processPendingRoute() {
+        guard !store.isLoading, !store.isSaving, !store.loadFailed else { return }
+        if pendingPurchaseGuard {
+            pendingPurchaseGuard = false; notifications.route = nil; editor = .purchaseGuard
+        } else if let route = notifications.route {
+            notifications.route = nil
+            if route == "payments" { editor = nil; page = .household }
+            else { editor = route == "wish" ? .wishes : .purchaseGuard }
+        }
+    }
+    private var recoveryView: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle).foregroundStyle(.orange)
+            Text("Deine Daten bleiben erhalten").font(.title.bold())
+            Text("Die aktuelle Datei konnte nicht geladen werden. Es werden keine leeren Daten darüber gespeichert.").foregroundStyle(secondary)
+            if let recovery = store.recovery {
+                Text("Geprüfte Sicherung vom \(recovery.date.formatted(date: .abbreviated, time: .shortened))")
+                Button("Diesen Stand wiederherstellen") { confirmRecovery = true }.buttonStyle(MintButton())
+            }
+            Button("Erneut laden") { store.load() }
+            Button("Backup aus Dateien wählen") { importBackup = true }
+        }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -270,17 +318,23 @@ struct ContentView: View {
             Text("Ausgaben").font(.title2.bold())
             Button("Ausgabe erfassen", systemImage: "plus") { editor = .expense }
             if store.budget.expenses.isEmpty { Text("Eine frische Woche. Erfasse deine erste Ausgabe.").foregroundStyle(secondary).padding(.vertical, 25) }
-            ForEach(store.budget.expenses) { e in
+            ForEach(Array(store.budget.expenses.prefix(expenseCount))) { e in
                 HStack {
                     VStack(alignment: .leading, spacing: 5) { Text(e.title); Text("\(e.category) · \(e.date.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary) }
                     Spacer(); Text("−\(Euro.format(e.cents))").fontWeight(.semibold)
-                    Menu { Button("Rückgängig machen", systemImage: "arrow.uturn.backward") { store.change { $0.undoExpense(id: e.id) } } } label: { Image(systemName: "ellipsis").frame(width: 38, height: 44) }.accessibilityLabel("Ausgabe verwalten")
+                    Menu { Button("Bearbeiten", systemImage: "pencil") { editor = .editExpense(e.id) }; Button("Rückgängig machen", systemImage: "arrow.uturn.backward") { store.change { $0.undoExpense(id: e.id) } } } label: { Image(systemName: "ellipsis").frame(width: 38, height: 44) }.accessibilityLabel("Ausgabe verwalten")
                 }
                 Divider()
+            }
+            if store.budget.expenses.count > expenseCount {
+                Button("Weitere 30 Ausgaben anzeigen") { expenseCount += 30 }
+                Text("\(min(expenseCount, store.budget.expenses.count)) von \(store.budget.expenses.count) Ausgaben geladen. Alle Einträge bleiben gespeichert.").font(.caption).foregroundStyle(secondary)
             }
             Button("Benachrichtigungen", systemImage: "bell.badge") { editor = .notifications }
             Button("Kaufbremse & Amazon einrichten", systemImage: "hand.raised") { editor = .purchaseGuard }
             Text("Datensicherung").font(.headline).padding(.top, 10)
+            Text("Zwei vorherige Speicherstände werden beim Ändern automatisch auf diesem iPhone gesichert. Bei einem Ladefehler kannst du einen geprüften Stand wiederherstellen. Ein externes Backup schützt zusätzlich bei Verlust oder Löschen der App.").font(.caption).foregroundStyle(secondary)
+            if let lastSaved = store.lastSaved { Text("Zuletzt gespeichert: \(lastSaved.formatted(date: .omitted, time: .standard))").font(.caption).foregroundStyle(mint) }
             Button("Backup erstellen", systemImage: "square.and.arrow.up") {
                 do { exported = try store.exportURL() } catch { store.error = error.localizedDescription }
             }
@@ -394,10 +448,12 @@ private struct EditorView: View {
     @State private var purpose: ExpensePurpose? = nil
     @State private var fixed = ""
     @State private var weekly = ""
+    @State private var loaded = false
+    @State private var originalExpense: Expense?
     @State private var confirmDelete = false
     @State private var release = false
     @State private var validation: String?
-    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .editPot: return "Spartopf bearbeiten"; case .payment: return "Zahlung"; case .assistant: return "Assistent"; case .notifications: return "Benachrichtigungen"; case .purchaseGuard: return "Kaufbremse"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
+    private var heading: String { switch editor { case .expense: return "Ausgabe erfassen"; case .settings: return "Budget bearbeiten"; case .newPot: return "Neuer Spartopf"; case .editPot: return "Spartopf bearbeiten"; case .editExpense: return "Ausgabe bearbeiten"; case .payment: return "Zahlung"; case .assistant, .wishes: return "Assistent"; case .notifications: return "Benachrichtigungen"; case .purchaseGuard: return "Kaufbremse"; case .pot(let id): return store.budget.pots.first { $0.id == id }?.name ?? "Spartopf" } }
     var body: some View {
         NavigationStack {
             Form {
@@ -425,7 +481,7 @@ private struct EditorView: View {
                 } else {
                     if case .pot = editor { Picker("Aktion", selection: $release) { Text("Reservieren").tag(false); Text("Freigeben").tag(true) }.pickerStyle(.segmented) }
                     Section { field(editorIsNewPot ? "Sparziel in €" : "Betrag in €", text: $amount) }
-                    if case .expense = editor {
+                    if editorIsExpense {
                         Section {
                             TextField("Bezeichnung (optional)", text: $title)
                             TextField("Händler (optional)", text: $merchant)
@@ -433,15 +489,17 @@ private struct EditorView: View {
                                 Text("Noch offen").tag(Optional<ExpensePurpose>.none)
                                 ForEach(ExpensePurpose.allCases) { Text($0.title).tag(Optional($0)) }
                             }
-                            Picker("Kategorie", selection: $category) { ForEach(["Lebensmittel", "Freizeit", "Mobilität", "Wohnen", "Sonstiges"], id: \.self) { Text($0) } }
+                            .disabled(originalExpense?.fundingPotID != nil)
+                            Picker("Kategorie", selection: $category) { ForEach(expenseCategories, id: \.self) { Text($0) } }
                         }
+                        if originalExpense?.fundingPotID != nil { Text("Notfallausgabe: Eine Betragskorrektur gleicht Kontostand und die noch vorhandene Notfallreserve gemeinsam ab.").font(.caption).foregroundStyle(secondary) }
                         Text("Die Ausgabe reduziert deinen Kontostand. Fixkosten mit Termin bitte im Haushalt als bezahlt buchen, damit die Reserve gleichzeitig freigegeben wird.").font(.caption).foregroundStyle(secondary)
                     }
                     if case .newPot = editor { TextField("Name des Spartopfs", text: $title) }
                     if case .pot = editor { Text("Frei verfügbar: \(Euro.format(store.budget.available)). Reservieren verschiebt kein Geld auf ein anderes Bankkonto.").font(.subheadline).foregroundStyle(secondary) }
                 }
                 if let validation { Text(validation).foregroundStyle(.red).accessibilityAddTraits(.isStaticText) }
-                Button("Speichern") { save() }.fontWeight(.bold)
+                Button("Speichern") { Task { await save() } }.fontWeight(.bold)
             }
             .navigationTitle(heading).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }; ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } } }
@@ -459,33 +517,47 @@ private struct EditorView: View {
                 }
             }
             .onAppear {
+                guard !loaded else { return }; loaded = true
+                if case .editExpense(let id) = editor, let expense = store.budget.expenses.first(where: { $0.id == id }) {
+                    originalExpense = expense; amount = Euro.editable(expense.cents); title = expense.title
+                    category = expense.category; merchant = expense.merchant ?? ""; purpose = expense.purpose
+                }
                 if case .editPot(let id) = editor, let pot = store.budget.pots.first(where: { $0.id == id }) {
                     title = pot.name; amount = Euro.editable(pot.target)
                 }
                 if case .settings = editor { amount = Euro.editable(store.budget.balance); fixed = Euro.editable(store.budget.fixedCosts); weekly = Euro.editable(store.budget.weeklyLimit) } }
         }.tint(mint)
     }
+    private var expenseCategories: [String] {
+        let categories = ["Lebensmittel", "Freizeit", "Mobilität", "Wohnen", "Sonstiges"]
+        return categories.contains(category) ? categories : categories + [category]
+    }
+    private var editorIsExpense: Bool { switch editor { case .expense, .editExpense: return true; default: return false } }
     private var editorIsNewPot: Bool { if case .newPot = editor { return true }; return false }
     private func field(_ label: String, text: Binding<String>) -> some View { TextField(label, text: text).keyboardType(.decimalPad).accessibilityLabel(label) }
-    private func save() {
+    private func save() async {
         do {
             let cents = try Euro.parse(amount, allowZero: { if case .settings = editor { return true }; return false }())
             switch editor {
             case .settings:
                 let f = try Euro.parse(fixed, allowZero: true); let w = try Euro.parse(weekly)
-                if store.change({ $0.balance = cents; $0.fixedCosts = f; $0.weeklyLimit = w; $0.setupComplete = true }) { dismiss() }
+                if await store.saveChange({ $0.balance = cents; $0.fixedCosts = f; $0.weeklyLimit = w; $0.setupComplete = true }) { dismiss() }
             case .expense:
-                if store.change({ try $0.addExpense(cents: cents, title: String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100)), category: category, merchant: String(merchant.prefix(100)), purpose: purpose) }) { dismiss() }
+                if await store.saveChange({ try $0.addExpense(cents: cents, title: String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100)), category: category, merchant: String(merchant.prefix(100)), purpose: purpose) }) { dismiss() }
+            case .editExpense(let id):
+                guard let originalExpense else { validation = BudgetError.missingExpense.localizedDescription; return }
+                if await store.saveChange({ try $0.updateExpense(id: id, cents: cents, title: title, category: category, merchant: merchant, purpose: purpose, expected: originalExpense) }) { dismiss() }
+                else { validation = store.error; store.error = nil }
             case .pot(let id):
-                if store.change({ b in if release { try b.release(cents: cents, potID: id) } else { try b.allocate(cents: cents, potID: id) } }) { dismiss() }
+                if await store.saveChange({ b in if release { try b.release(cents: cents, potID: id) } else { try b.allocate(cents: cents, potID: id) } }) { dismiss() }
             case .editPot(let id):
-                if store.change({ try $0.updatePot(id: id, name: title, target: cents) }) { dismiss() }
+                if await store.saveChange({ try $0.updatePot(id: id, name: title, target: cents) }) { dismiss() }
                 else { validation = store.error }
-            case .payment, .assistant, .notifications, .purchaseGuard: return
+            case .payment, .assistant, .wishes, .notifications, .purchaseGuard: return
             case .newPot:
                 let name = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
                 guard !name.isEmpty else { validation = "Bitte einen Namen eingeben."; return }
-                if store.change({ $0.pots.append(.init(name: name, target: cents)) }) { dismiss() }
+                if await store.saveChange({ $0.pots.append(.init(name: name, target: cents)) }) { dismiss() }
             }
         } catch { validation = error.localizedDescription }
     }
@@ -502,6 +574,7 @@ private struct RecurringEditor: View {
     @State private var dueDate = Date()
     @State private var hasEndDate = false
     @State private var endDate = Date()
+    @State private var loaded = false
     @State private var validation: String?
     private var dateRange: ClosedRange<Date> {
         let c = Calendar(identifier: .gregorian)
@@ -532,7 +605,7 @@ private struct RecurringEditor: View {
                     if existingID != nil { Text("Änderungen gelten ab dem gewählten nächsten Termin. Frühere Buchungen bleiben erhalten.").font(.caption).foregroundStyle(secondary) }
                 }
                 if let validation { Text(validation).foregroundStyle(.red) }
-                Button("Speichern") { save() }.fontWeight(.bold)
+                Button("Speichern") { Task { await save() } }.fontWeight(.bold)
             }
             .navigationTitle(kind == .income ? "Monatliche Einnahme" : "Fixkosten")
             .navigationBarTitleDisplayMode(.inline)
@@ -541,6 +614,7 @@ private struct RecurringEditor: View {
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } }
             }
             .onAppear {
+                guard !loaded else { return }; loaded = true
                 if let id = existingID, let p = store.budget.payments.first(where: { $0.id == id }) {
                     name = p.name; amount = Euro.editable(p.cents); cadence = p.cadence; dueDate = p.nextDue()
                     hasEndDate = p.endDate != nil; endDate = p.endDate ?? max(Date(), p.nextDue())
@@ -548,7 +622,7 @@ private struct RecurringEditor: View {
             }
         }.tint(mint)
     }
-    private func save() {
+    private func save() async {
         do {
             let cents = try Euro.parse(amount)
             let cleanName = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
@@ -560,7 +634,7 @@ private struct RecurringEditor: View {
                 p.firstDue = old.firstDue; p.completed = old.completed
             }
             _ = try p.validated()
-            let success = store.change { budget in
+            let success = await store.saveChange { budget in
                 if let id = existingID { try budget.replacePayment(id: id, with: p) }
                 else { try budget.savePayment(p) }
             }

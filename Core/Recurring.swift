@@ -39,15 +39,31 @@ public struct RecurringPayment: Codable, Equatable, Identifiable {
     public func isDue(now: Date = Date(), calendar: Calendar = .current) -> Bool {
         hasPendingOccurrence(calendar: calendar) && calendar.startOfDay(for: nextDue(calendar: calendar)) <= calendar.startOfDay(for: now)
     }
-    public func outstandingThroughMonth(now: Date = Date(), calendar: Calendar = .current) -> Int {
-        guard let month = calendar.dateInterval(of: .month, for: now) else { return 0 }
-        var total = 0
-        var index = completed
-        while index < 12_000, includesOccurrence(index, calendar: calendar), dueDate(at: index, calendar: calendar) < month.end {
-            total += cents
+    public func outstandingCount(through date: Date, calendar: Calendar = .current) -> Int {
+        let cutoff = min(calendar.startOfDay(for: date), endDate.map { calendar.startOfDay(for: $0) } ?? calendar.startOfDay(for: date))
+        guard let firstMonth = calendar.dateInterval(of: .month, for: firstDue)?.start,
+              let lastMonth = calendar.dateInterval(of: .month, for: cutoff)?.start,
+              let months = calendar.dateComponents([.month], from: firstMonth, to: lastMonth).month, months >= 0 else { return 0 }
+        var last = min(11_999, months / cadence.rawValue)
+        if calendar.startOfDay(for: dueDate(at: last, calendar: calendar)) > cutoff { last -= 1 }
+        return max(0, last - completed + 1)
+    }
+    public func nextFutureDate(after now: Date, calendar: Calendar = .current) -> Date? {
+        let today = calendar.startOfDay(for: now)
+        guard let firstMonth = calendar.dateInterval(of: .month, for: firstDue)?.start,
+              let thisMonth = calendar.dateInterval(of: .month, for: today)?.start else { return nil }
+        let months = max(0, calendar.dateComponents([.month], from: firstMonth, to: thisMonth).month ?? 0)
+        var index = max(completed, months / cadence.rawValue)
+        while index < 12_000 && includesOccurrence(index, calendar: calendar) {
+            let date = calendar.startOfDay(for: dueDate(at: index, calendar: calendar))
+            if date > today { return date }
             index += 1
         }
-        return total
+        return nil
+    }
+    public func outstandingThroughMonth(now: Date = Date(), calendar: Calendar = .current) -> Int {
+        guard let month = calendar.dateInterval(of: .month, for: now), let lastDay = calendar.date(byAdding: .day, value: -1, to: month.end) else { return 0 }
+        return outstandingCount(through: lastDay, calendar: calendar) * cents
     }
     public func validated() throws -> RecurringPayment {
         let year = Calendar(identifier: .gregorian).component(.year, from: firstDue)

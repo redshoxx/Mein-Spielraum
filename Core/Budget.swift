@@ -1,9 +1,11 @@
 import Foundation
 
 public enum BudgetError: LocalizedError {
-    case invalidPotName, invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue, invalidEndDate, purchasePause, budgetProtected, emergencyFunds
+    case missingExpense, changedEntry, invalidPotName, invalidAmount, insufficientFunds, missingPot, invalidBackup, alreadyBooked, notDue, invalidEndDate, purchasePause, budgetProtected, emergencyFunds
     public var errorDescription: String? {
         switch self {
+        case .missingExpense: return "Diese Ausgabe ist nicht mehr vorhanden."
+        case .changedEntry: return "Der Eintrag wurde inzwischen geändert. Bitte neu öffnen."
         case .invalidPotName: return "Bitte einen Namen mit 1 bis 40 Zeichen eingeben."
         case .invalidAmount: return "Bitte einen gültigen Betrag eingeben (höchstens zwei Nachkommastellen)."
         case .insufficientFunds: return "Dafür ist nicht genug Geld verfügbar."
@@ -31,13 +33,19 @@ public enum Euro {
         guard cents >= (allowZero ? 0 : 1), cents <= limit else { throw BudgetError.invalidAmount }
         return cents
     }
-    public static func format(_ cents: Int) -> String {
+    private static let formatterLock = NSLock()
+    private static let wholeFormatter = currencyFormatter(digits: 0)
+    private static let fractionFormatter = currencyFormatter(digits: 2)
+    private static func currencyFormatter(digits: Int) -> NumberFormatter {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "de_AT")
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "EUR"
-        formatter.minimumFractionDigits = cents % 100 == 0 ? 0 : 2
-        formatter.maximumFractionDigits = 2
+        formatter.numberStyle = .currency; formatter.currencyCode = "EUR"
+        formatter.minimumFractionDigits = digits; formatter.maximumFractionDigits = digits
+        return formatter
+    }
+    public static func format(_ cents: Int) -> String {
+        formatterLock.lock(); defer { formatterLock.unlock() }
+        let formatter = cents % 100 == 0 ? wholeFormatter : fractionFormatter
         return formatter.string(from: NSNumber(value: Double(cents) / 100)) ?? "0 €"
     }
     public static func editable(_ cents: Int) -> String {
@@ -113,6 +121,31 @@ public struct Budget: Codable, Equatable {
         balance -= cents
         expenses.insert(.init(title: title.isEmpty ? category : title, cents: cents, category: category, date: date, merchant: merchant, purpose: purpose), at: 0)
     }
+    public mutating func updateExpense(id: UUID, cents: Int, title: String, category: String, merchant: String?, purpose: ExpensePurpose?, expected: Expense? = nil) throws {
+        guard let i = expenses.firstIndex(where: { $0.id == id }) else { throw BudgetError.missingExpense }
+        let old = expenses[i]
+        guard expected == nil || expected == old else { throw BudgetError.changedEntry }
+        guard cents > 0, cents <= Euro.limit else { throw BudgetError.invalidAmount }
+        let delta = cents - old.cents
+        guard balance >= delta, balance - delta <= Euro.limit else { throw BudgetError.insufficientFunds }
+        var potIndex: Int?
+        if let funding = old.fundingPotID {
+            potIndex = pots.firstIndex { $0.id == funding }
+            if let p = potIndex {
+                guard pots[p].cents >= delta, pots[p].cents - delta <= Euro.limit else { throw BudgetError.emergencyFunds }
+            } else if delta > 0 { throw BudgetError.missingPot }
+        }
+        balance -= delta
+        if let p = potIndex, delta != 0 {
+            pots[p].cents -= delta
+            reserveMovements.insert(.init(cents: -delta, date: Date(), emergency: true), at: 0)
+        }
+        expenses[i].cents = cents
+        expenses[i].title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? category : String(title.prefix(100))
+        expenses[i].category = String(category.prefix(100))
+        expenses[i].merchant = merchant.map { String($0.prefix(100)) }
+        expenses[i].purpose = old.fundingPotID == nil ? purpose : .emergency
+    }
     public mutating func undoExpense(id: UUID) {
         guard let i = expenses.firstIndex(where: { $0.id == id }) else { return }
         let e = expenses.remove(at: i)
@@ -160,22 +193,26 @@ public struct Budget: Codable, Equatable {
         b.pots = [.init(name: "Urlaub", cents: 48_000, target: 80_000), .init(name: "Notgroschen", cents: 75_000, target: 100_000)]
         return b
     }
+    private func validDate(_ date: Date) -> Bool {
+        let seconds = date.timeIntervalSince1970
+        return seconds.isFinite && (-2_208_988_800.0...7_258_118_400.0).contains(seconds)
+    }
     public func validated() throws -> Budget {
         guard schema == 3, balance >= 0, balance <= Euro.limit, fixedCosts >= 0, fixedCosts <= Euro.limit,
               weeklyLimit > 0, weeklyLimit <= Euro.limit,
               pots.count <= 100, Set(pots.map(\.id)).count == pots.count,
-              Set(expenses.map(\.id)).count == expenses.count,
+              expenses.count <= 100_000, Set(expenses.map(\.id)).count == expenses.count,
               pots.allSatisfy({ !$0.name.isEmpty && $0.cents >= 0 && $0.cents <= Euro.limit && $0.target > 0 && $0.target <= Euro.limit }),
-              expenses.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit }),
+              expenses.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit && validDate($0.date) && $0.title.count <= 1000 && $0.category.count <= 1000 && ($0.merchant?.count ?? 0) <= 1000 }),
               payments.count <= 1000, Set(payments.map(\.id)).count == payments.count,
               recurringRecords.count <= 100_000, Set(recurringRecords.map(\.id)).count == recurringRecords.count,
-              recurringRecords.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit && (0..<12_000).contains($0.occurrence) }) else { throw BudgetError.invalidBackup }
-        guard assistant.essentialWeekly >= 0, assistant.essentialWeekly <= Euro.limit,
+              recurringRecords.allSatisfy({ $0.cents > 0 && $0.cents <= Euro.limit && validDate($0.dueDate) && validDate($0.bookedAt) && (0..<12_000).contains($0.occurrence) }) else { throw BudgetError.invalidBackup }
+        guard assistant.nextPayday.map(validDate) ?? true, assistant.essentialWeekly >= 0, assistant.essentialWeekly <= Euro.limit,
               assistant.safetyBuffer >= 0, assistant.safetyBuffer <= Euro.limit,
               assistant.extraSavings >= 0, assistant.extraSavings <= Euro.limit,
               wishes.count <= 1000, Set(wishes.map(\.id)).count == wishes.count,
-              wishes.allSatisfy({ !$0.name.isEmpty && $0.name.count <= 100 && $0.cents > 0 && $0.cents <= Euro.limit }),
-              reserveMovements.count <= 100_000, reserveMovements.allSatisfy({ (-Euro.limit...Euro.limit).contains($0.cents) }) else { throw BudgetError.invalidBackup }
+              wishes.allSatisfy({ !$0.name.isEmpty && $0.name.count <= 100 && $0.cents > 0 && $0.cents <= Euro.limit && validDate($0.createdAt) }),
+              reserveMovements.count <= 100_000, reserveMovements.allSatisfy({ (-Euro.limit...Euro.limit).contains($0.cents) && validDate($0.date) }) else { throw BudgetError.invalidBackup }
         for payment in payments { _ = try payment.validated() }
         return self
     }

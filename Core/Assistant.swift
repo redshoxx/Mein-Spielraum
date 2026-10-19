@@ -59,7 +59,7 @@ public struct BudgetAssessment {
 extension Budget {
     /// Local Bayesian estimate from user-labelled purchases. Unknown and emergency entries are excluded.
     public func necessityEstimate(merchant: String, category: String) -> NecessityEstimate? {
-        let labelled = expenses.filter { $0.purpose == .necessary || $0.purpose == .wish }
+        let labelled = expenses.filter { $0.fundingPotID == nil && ($0.purpose == .necessary || $0.purpose == .wish) }
         let key = merchant.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let sameMerchant = key.isEmpty ? [] : labelled.filter { ($0.merchant ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == key }
         let rows: [Expense]
@@ -84,15 +84,7 @@ extension Budget {
         let scheduled = payments.filter { $0.kind == .income && $0.hasPendingOccurrence(calendar: calendar) }
             .map { calendar.startOfDay(for: $0.nextDue(calendar: calendar)) }.filter { $0 > today }.min()
         // Advance only the forecast date, never book or invent an income.
-        let automaticPayday = payments.filter { $0.kind == .income }.compactMap { p -> Date? in
-            var index = p.completed
-            while index < 12_000 && p.includesOccurrence(index, calendar: calendar) {
-                let date = calendar.startOfDay(for: p.dueDate(at: index, calendar: calendar))
-                if date > today { return date }
-                index += 1
-            }
-            return nil
-        }.min()
+        let automaticPayday = automatic ? payments.lazy.filter { $0.kind == .income }.compactMap { $0.nextFutureDate(after: now, calendar: calendar) }.min() : nil
         let fallback = calendar.date(byAdding: .day, value: 30, to: today)!
         let horizon = automatic ? (automaticPayday ?? fallback) : (manual ?? scheduled)
         guard let payday = horizon,
@@ -103,23 +95,22 @@ extension Budget {
         a.payday = payday; a.days = days
         var iso = Calendar(identifier: .iso8601); iso.timeZone = calendar.timeZone
         let weekStart = iso.dateInterval(of: .weekOfYear, for: now)?.start ?? today
-        let earliest = expenses.map(\.date).filter { $0 <= now }.min()
+        let earliest = expenses.lazy.map(\.date).filter { $0 <= now }.min()
         let observedWeeks = earliest.flatMap { iso.dateInterval(of: .weekOfYear, for: $0) }.flatMap { iso.dateComponents([.weekOfYear], from: $0.end, to: weekStart).weekOfYear } ?? 0
         let weeks = max(0, min(8, observedWeeks))
         let start = iso.date(byAdding: .weekOfYear, value: -weeks, to: weekStart) ?? weekStart
         let necessary = expenses.filter {
-            let protect = $0.purpose == .necessary || (automatic && $0.purpose == nil && $0.fundingPotID == nil)
+            let protect = $0.fundingPotID == nil && ($0.purpose == .necessary || (automatic && $0.purpose == nil))
             return protect && $0.date >= start && $0.date < weekStart
         }
         a.learnedSamples = necessary.count
         a.learnedWeeks = weeks
         var learned = 0
         if weeks >= 3 && necessary.count >= 8 {
-            var totals: [Int] = []
-            for i in 0..<weeks {
-                let s = iso.date(byAdding: .weekOfYear, value: i, to: start)!
-                let e = iso.date(byAdding: .weekOfYear, value: 1, to: s)!
-                totals.append(necessary.filter { $0.date >= s && $0.date < e }.reduce(0) { $0 + $1.cents })
+            var totals = Array(repeating: 0, count: weeks)
+            for expense in necessary {
+                let index = iso.dateComponents([.weekOfYear], from: start, to: expense.date).weekOfYear ?? 0
+                if totals.indices.contains(index) { totals[index] += expense.cents }
             }
             let sorted = totals.sorted()
             learned = sorted[min(sorted.count - 1, Int(ceil(Double(sorted.count) * 0.8)) - 1)]
@@ -128,12 +119,8 @@ extension Budget {
         a.essentialWeekly = max(assistant.essentialWeekly, automatic && learned == 0 ? weeklyLimit : learned)
         if automatic { a.buffer = max(a.buffer, a.essentialWeekly) }
         a.essentialReserve = Int(ceil(Double(a.essentialWeekly) * Double(days) / 7))
-        var untilPayday = fixedCosts
-        for p in payments where p.kind == .fixedCost {
-            var index = p.completed
-            while index < 12_000 && p.includesOccurrence(index, calendar: calendar) && calendar.startOfDay(for: p.dueDate(at: index, calendar: calendar)) <= payday {
-                untilPayday += p.cents; index += 1
-            }
+        let untilPayday = fixedCosts + payments.lazy.filter { $0.kind == .fixedCost }.reduce(0) {
+            $0 + $1.outstandingCount(through: payday, calendar: calendar) * $1.cents
         }
         a.fixedReserve = max(fixedReserve(now: now, calendar: calendar), untilPayday)
         let afterProtection = balance - reserved - a.fixedReserve - a.buffer - a.extraSavings - a.essentialReserve

@@ -19,7 +19,7 @@ struct AssistantView: View {
     @State private var message: String?
     @State private var now = Date()
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
-    private var analysis: BudgetAssessment { store.budget.assessment(now: now) }
+    private var analysis: BudgetAssessment { store.assessment(now: now) }
     var body: some View {
         NavigationStack {
             List {

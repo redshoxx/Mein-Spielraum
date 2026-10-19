@@ -114,10 +114,10 @@ struct NotificationSettingsView: View {
                 if let error = notifications.error { Section { Text(error).foregroundStyle(.orange) } }
             }.navigationTitle("Benachrichtigungen").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
-            .onChange(of: notifications.enabled) { _ in notifications.refresh(budget: store.budget) }
-            .onChange(of: notifications.paymentsEnabled) { _ in notifications.refresh(budget: store.budget) }
-            .onChange(of: notifications.wishesEnabled) { _ in notifications.refresh(budget: store.budget) }
-            .onChange(of: notifications.dailyEnabled) { _ in notifications.refresh(budget: store.budget) }
+            .onChange(of: notifications.enabled) { notifications.refresh(budget: store.budget) }
+            .onChange(of: notifications.paymentsEnabled) { notifications.refresh(budget: store.budget) }
+            .onChange(of: notifications.wishesEnabled) { notifications.refresh(budget: store.budget) }
+            .onChange(of: notifications.dailyEnabled) { notifications.refresh(budget: store.budget) }
         }.tint(SpielraumTheme.mint).preferredColorScheme(.dark)
     }
 }

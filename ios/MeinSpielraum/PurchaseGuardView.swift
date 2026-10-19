@@ -7,7 +7,7 @@ struct PurchaseGuardView: View {
     @State private var checkOpen = false
     @State private var pauseUntil = Date().addingTimeInterval(15)
     @State private var copied = false
-    private var analysis: BudgetAssessment { store.budget.assessment() }
+    private var analysis: BudgetAssessment { store.assessment() }
     var body: some View {
         NavigationStack {
             ScrollView {
