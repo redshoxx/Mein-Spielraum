@@ -2,9 +2,9 @@
 
 Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Dunkles Design mit mintgrünen Akzenten. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
 
-**Stand:** Version 0.2.4 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 23 Swift-Tests und 3 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
+**Stand:** Version 0.3.6 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 35 Swift-Tests und 3 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
 
-**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39267574381)
+**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39271037563)
 
 ## Einmalige GitHub-Einrichtung
 
@@ -24,11 +24,11 @@ Nach dem ersten erfolgreichen Release:
 
 In SideStore im Bereich **Sources/Quellen** die Source-URL hinzufügen, dann „Mein Spielraum“ installieren. Alternativ die IPA in Safari laden und in SideStore importieren. SideStore muss bereits korrekt auf dem iPhone eingerichtet sein; seine Signierungs-, Geräte- und Netzwerkanforderungen gelten weiterhin.
 
-Die aktuellen Assets wurden im Release v0.2.4 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
+Die aktuellen Assets wurden im Release v0.3.6 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
 
 ## Neue Versionen
 
-Jeder Push auf `main` erstellt eine neue Version `0.2.<GitHub-Laufnummer>`. Für eine neue Versionsserie `VERSION` ändern, z.B. auf `0.3`. Der erfolgreiche Release aktualisiert die Source unter derselben URL. Die Versionsnummer wird aus demselben Wert in die IPA und in die Source geschrieben; ihre Übereinstimmung wird geprüft.
+Jeder Push auf `main` erstellt eine neue Version `0.3.<GitHub-Laufnummer>`. Für eine neue Versionsserie `VERSION` ändern, z.B. auf `0.4`. Der erfolgreiche Release aktualisiert die Source unter derselben URL. Die Versionsnummer wird aus demselben Wert in die IPA und in die Source geschrieben; ihre Übereinstimmung wird geprüft.
 
 SideStore erkennt neue Versionen über die Source und bietet sie zum Aktualisieren an. Eine unbeaufsichtigte automatische Installation wird nicht zugesagt. Signierung erneuern/„Refresh“ und neue App-Version installieren sind unterschiedliche Vorgänge. Vor Updates ein Backup exportieren. App über die bestehende Installation aktualisieren, nicht deinstallieren. Bundle-ID `at.redshoxx.meinspielraum` und verwendetes Signierkonto beibehalten.
 
@@ -50,7 +50,32 @@ Auf der Startübersicht stehen die nächsten offenen Fixkosten nach Fälligkeit 
 - Wochenbudget: eingestelltes Limit minus variable Ausgaben der aktuellen ISO-Woche, höchstens das frei verfügbare Geld. Neue Woche setzt nur den Wochenverbrauch zurück; Kontostand und Historie bleiben erhalten.
 - Alle Beträge werden in ganzen Cent gerechnet. Geld für einen Spartopf reservieren verändert den Kontostand nicht.
 - Einträge werden nach jeder erfolgreichen Änderung atomar in einer geschützten Datei im App-Speicher gespeichert. Die vorhandene Datei bleibt bei Ladefehlern unverändert. Dateiname und Bundle-ID bleiben beim Update gleich.
-- Unter **Haushalt → Backup erstellen** als JSON exportieren. Wiederherstellung verlangt eine Bestätigung und prüft das Datenformat. Backups enthalten private Haushaltsdaten; bewahre sie privat auf. Beim Löschen der App gehen lokale Daten verloren. Neue Backups mit Datenformat 2 sind nicht für alte App-Versionen bestimmt.
+- Unter **Haushalt → Backup erstellen** als JSON exportieren. Wiederherstellung verlangt eine Bestätigung und prüft das Datenformat. Backups enthalten private Haushaltsdaten; bewahre sie privat auf. Beim Löschen der App gehen lokale Daten verloren. Neue Backups mit Datenformat 3 sind nicht für alte App-Versionen bestimmt.
+
+## Lernender Budget-Assistent
+
+Auf der **Übersicht → Lernender Budget-Assistent** öffnen und über das Regler-Symbol einrichten. Notwendigen Alltag pro Woche, Sicherheitspuffer, noch zusätzlich zu reservierendes Spargeld, nächsten Gehaltstag und einen vorhandenen Notfall-Spartopf selbst wählen. Danach Ausgaben im Assistenten unter **Lernen** markieren: notwendig, Wunsch oder Notfall. Ein Händler kann beim Erfassen optional angegeben werden. Markierungen sind korrigierbar und entfernbar.
+
+### Was tatsächlich lernt
+
+- Ein lokaler Bayesianischer Klassifikator berechnet aus deinen Markierungen eine Einordnung für Händler (ab 3 Beispielen) oder Kategorien (ab 5 Beispielen). Beta(1,1)-Prior: Wahrscheinlichkeit notwendig = (notwendige Beispiele + 1) / (bewertete Beispiele + 2). Notfälle und unmarkierte Einträge sind keine Trainingsbeispiele.
+- Für notwendige Alltagsausgaben wird aus bis zu 8 abgeschlossenen Kalenderwochen ein vorsichtiger Wochenansatz (80%-Quantil) berechnet, frühestens ab 3 vollständigen Kalenderwochen und 8 markierten notwendigen Ausgaben. Der selbst eingetragene Mindestbedarf wird nie unterschritten. Fehlende oder falsch markierte Ausgaben können die Schätzung verfälschen.
+- Der Assistent verändert das bestehende Wochenlimit und deine Planwerte nicht automatisch. Mehr Konsum rechtfertigt kein höheres Limit.
+- Es handelt sich um lokal berechnete Lernmodelle und Budgetregeln, ohne externen Sprachmodell-/Chatdienst, Bankverbindung oder Standortüberwachung. Alle Daten bleiben im App-Speicher, bis du sie selbst als Backup teilst.
+
+### Schutz und Empfehlungen
+
+Der Richtwert für freie Wünsche zieht vom tatsächlichen Kontostand ab: bestehende Spartöpfe, offene Fixkosten (mindestens bis Monatsende und bis zum Gehaltstag), prognostizierten notwendigen Alltag, Sicherheitspuffer und noch zusätzlich geplantes Spargeld. Zusätzlich gilt das unveränderte verbleibende Wochenlimit abzüglich eines Alltagsbedarfs für die verbleibenden Wochentage. Zukünftiges Gehalt wird nicht zum Guthaben gerechnet. Die Hauptübersicht zeigt nach Einrichtung diesen Richtwert an.
+
+Bei veraltetem Gehaltstag oder einer Planungslücke gibt es keine Kauf-Freigabe in der Wunschliste. Ein Kauf bleibt eine eigene Entscheidung; die App sperrt keine Bankkarte und kann tatsächliche Schulden nicht verhindern. Normale Ausgaben bleiben erfassbar, damit die Historie den echten Ausgaben entspricht.
+
+**Kaufcheck:** Preis und optionalen Händler eingeben. Die Auswirkung auf deinen Plan wird angezeigt. Wünsche werden 48 Stunden zurückgestellt und vor dem Erfassen als Kauf erneut geprüft. Auf Wunsch verzichten entfernt ihn aus der Liste.
+
+**Notfall:** Im Assistenten sofort aus dem ausgewählten Notfalltopf erfassen, ohne Kaufpause und höchstens bis zum tatsächlichen Topf-/Kontoguthaben. Kontostand und Notfallreserve sinken gemeinsam; die notwendige Reserve für andere Posten wird dadurch nicht doppelt verbraucht. Rückgängig stellt den Topf wieder her. Es erfolgt keine Banküberweisung.
+
+**Sparen:** Ein vorsichtiger Zusatzvorschlag reserviert zuerst volle verbleibende Wochenbudgets. Es wird kein Geld automatisch bewegt. Wenn Geld in einen Spartopf reserviert wird, reduziert das den noch zusätzlich geplanten Sparbetrag, damit derselbe Betrag nicht doppelt abgezogen wird. Normale Entnahmen aus Spartöpfen werden als Hinweis auf Nachfüll-Gewohnheiten sichtbar; Notfälle sind davon ausgenommen.
+
+Der Plan wird bei jedem Gehaltszyklus von dir neu bestätigt. Vor Updates Backup exportieren, bestehende Installation behalten. Datenformate 1 und 2 werden auf Format 3 übernommen; neue Backups mit Assistent-Daten sind für alte App-Versionen nicht geeignet.
 
 ## Entwicklung und Prüfungen
 
@@ -64,7 +89,7 @@ Auf macOS mit Xcode und Homebrew:
 
 Für den Simulator den generierten Scheme `MeinSpielraum` wählen. Für einen signierten Direktstart auf einem eigenen iPhone in Xcode ein eigenes Team konfigurieren; für den GitHub-/SideStore-Weg ist das nicht nötig.
 
-Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 23 Swift-Tests, drei Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.2.4 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
+Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 35 Swift-Tests, drei Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.6 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
 
 ## Verwendete Dokumentation
 
