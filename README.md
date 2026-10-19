@@ -2,7 +2,7 @@
 
 Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Dunkles Design mit mintgrünen Akzenten. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
 
-**Stand:** Version 0.3.8 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 46 Swift-Tests und 3 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
+**Stand:** Version 0.3.9 wurde am 19.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 52 Swift-Tests und 4 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
 
 **Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39271037563)
 
@@ -24,7 +24,7 @@ Nach dem ersten erfolgreichen Release:
 
 In SideStore im Bereich **Sources/Quellen** die Source-URL hinzufügen, dann „Mein Spielraum“ installieren. Alternativ die IPA in Safari laden und in SideStore importieren. SideStore muss bereits korrekt auf dem iPhone eingerichtet sein; seine Signierungs-, Geräte- und Netzwerkanforderungen gelten weiterhin.
 
-Die aktuellen Assets wurden im Release v0.3.8 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
+Die aktuellen Assets wurden im Release v0.3.9 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
 
 ## Neue Versionen
 
@@ -79,6 +79,28 @@ Bei veraltetem manuellem Gehaltstag oder einer Planungslücke gibt es keine Kauf
 
 Im Automatikmodus wird die Berechnung bei Datenänderungen und beim Zeitwechsel aktualisiert. Nur ein manuell festgelegter Gehaltstag muss nach Ablauf erneuert werden. Vor Updates Backup exportieren, bestehende Installation behalten. Datenformate 1 und 2 werden auf Format 3 übernommen; neue Backups mit Assistent-Daten sind für alte App-Versionen nicht geeignet.
 
+## Neues Design und Benachrichtigungen
+
+Die Übersicht zeigt den geschätzten Spielraum in einer großen Mint-Karte, daneben Kontostand und Sparreserve als eigene Karten. Kaufbremse und Budget-Assistent sind direkt erreichbar. Der Haushalt bleibt hinter dem Zahnrad auf der Übersicht.
+
+Über die **Glocke** oder **Zahnrad → Haushalt → Benachrichtigungen** lokale Mitteilungen in iOS erlauben. Einzeln wählbar: nächste offene Fixkosten jeweils am Vortag und am Termin um 9 Uhr, Ende einer 48-Stunden-Kaufpause und täglicher Budgetcheck um 18 Uhr. Es werden keine Kontostände, Beträge oder Händlernamen auf dem Sperrbildschirm genannt.
+
+Die App plant maximal 58 einzelne Hinweise im nächsten 45-Tage-Fenster plus den wiederholten Tagescheck. Pro Fixkostenposten wird nur der nächste offene Termin berücksichtigt. Nach Buchung, Änderung oder Entfernen werden die ausstehenden Hinweise neu abgeglichen; überfällige Zahlungen werden zusammengefasst. Regelmäßig öffnen, damit neue Termine geplant werden. Fokus und iOS-Mitteilungseinstellungen beeinflussen die Zustellung. Einstellungen für Mitteilungen bleiben auf dem Gerät und sind nicht Teil des Finanz-Backups.
+
+## Freiwillige Kaufbremse bei Amazon
+
+Die Schaltfläche **Vor dem Kaufen kurz stoppen** öffnet eine kurze Pause mit aktuellem Kauf-Richtwert, anschließend Preischeck und Wunschliste. Dieselbe Ansicht öffnet die Adresse `spielraum://kaufcheck`.
+
+Einmal selbst in Apples Kurzbefehle-App einrichten:
+
+1. **Automation → Neue Automation → App → Amazon**.
+2. **Wird geöffnet → Sofort ausführen** wählen.
+3. **URLs öffnen** hinzufügen und `spielraum://kaufcheck` eintragen.
+
+Die genaue Benennung kann je nach iOS-Version abweichen. Die App zeigt diese Anleitung ebenfalls. Es ist keine Automation auf deinem iPhone eingerichtet worden; dafür ist eine manuelle Einrichtung nötig. Der Wechsel in die Kaufbremse ist freiwillig, kein harter Zugriffsschutz. Eine Rückkehr zu Amazon kann die Automation erneut auslösen.
+
+**Grenze:** Die App erkennt keine Warenkorb-Aktion, Artikelpreise oder Bezahlvorgänge in Amazon. iOS isoliert andere Apps. Systemweite App-Sperren über Family Controls erfordern besondere Apple-Entitlements; diese SideStore-Version besitzt sie nicht. App-Limits können direkt unter **iPhone-Einstellungen → Bildschirmzeit → App-Limits** eingerichtet werden; deren Wirksamkeit hängt von der iOS-Konfiguration ab. Es gibt keine automatische Bank- oder Zahlungssperre.
+
 ## Entwicklung und Prüfungen
 
 Auf macOS mit Xcode und Homebrew:
@@ -91,7 +113,7 @@ Auf macOS mit Xcode und Homebrew:
 
 Für den Simulator den generierten Scheme `MeinSpielraum` wählen. Für einen signierten Direktstart auf einem eigenen iPhone in Xcode ein eigenes Team konfigurieren; für den GitHub-/SideStore-Weg ist das nicht nötig.
 
-Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 46 Swift-Tests, drei Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.8 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
+Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 52 Swift-Tests, vier Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.9 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
 
 ## Verwendete Dokumentation
 
@@ -102,3 +124,5 @@ Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeb
 - XcodeGen: https://github.com/yonaskolb/XcodeGen
 
 App-Icon: individuell generiert; als 1024×1024-RGB-PNG in den Asset-Katalog eingebunden.
+
+Apple-Dokumentation zu den neuen Funktionen: https://developer.apple.com/documentation/usernotifications/scheduling-a-notification-locally-from-your-app · https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app · https://support.apple.com/guide/shortcuts/apde31e9638b/ios · https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement

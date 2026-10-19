@@ -1,10 +1,10 @@
-# Prüfstand · Version 0.3.8
+# Prüfstand · Version 0.3.9
 
-Build: https://github.com/redshoxx/Mein-Spielraum/actions/runs/39273601609
-Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.3.8
+Build: https://github.com/redshoxx/Mein-Spielraum/actions/runs/39276562638
+Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.3.9
 
-- 46 Swift-Tests bestanden, einschließlich 12 Assistent-Tests.
-- 3 Python-Source-Tests bestanden.
+- 52 Swift-Tests bestanden, einschließlich 12 Assistent-Tests.
+- 4 Python-Source-Tests bestanden.
 - Xcode-Gerätebuild und IPA-Metadatenprüfung erfolgreich.
 - IPA, SideStore-Source, Icon und Prüfsumme veröffentlicht.
 - Native Bildschirm-/Bedienprüfung auf echtem iPhone bleibt ausstehend. Die Genauigkeit von Prognosen mit tatsächlichen Nutzerdaten ist nicht empirisch validiert und wird nicht garantiert.
@@ -30,3 +30,9 @@ Fünf zusätzliche Swift-Tests prüfen Name und Ziel bei unverändertem Guthaben
 ## Automatik ohne Pflichtplan
 
 Sechs zusätzliche Swift-Tests prüfen den Start ohne Konfiguration, vorsichtigen Fallback mit Puffer, Fortschreibung eines überfälligen Einnahmetermins ohne Geldbuchung, Lernen aus unmarkierten Ausgaben ohne Zukunftseinträge, Schutz optionaler Mindestbeträge und Fixkosten, Ende einer Einkommensserie sowie alte Backups und explizite manuelle Einstellungen. Die Modellgüte hängt von vollständig erfassten Ausgaben ab; fehlende Kontoumsätze werden nicht erkannt.
+
+## Benachrichtigungen und Kaufbremse
+
+Sechs zusätzliche Swift-Tests prüfen Erinnerungsdaten mit lokalen Uhrzeiten, generische Texte ohne Finanzdetails, bezahlte/entfernte/abgeschlossene Posten, Zusammenfassung überfälliger Posten ohne Einkommen als Rechnung, 48-Stunden-Kaufpause ohne Wiederholung alter Wünsche, Abschalten, Zeithorizont, Begrenzung auf 58 Einzelhinweise und die Zeitumstellung in Wien. Der zusätzliche Python-Test lehnt IPAs ohne Kaufcheck-URL-Schema ab; der Paketgenerator prüft dieses Schema im tatsächlichen Gerätebuild.
+
+Nicht auf echtem iPhone geprüft: visuelles Layout, Systemdialog für Mitteilungen, Zustellung/Tap-Routing, Kurzbefehle-Automation, Deep-Link aus Amazon und Interaktionen mit Fokus/Bildschirmzeit. Keine Behauptung einer Warenkorb-Erkennung oder App-/Zahlungssperre. Die Kaufbremse ist freiwillig; die 15 Sekunden verzögern nur den Kaufcheck in ihrer Ansicht. Keine Bildschirmzeit-Entitlements oder Amazon-Anbindung hinzugefügt.
