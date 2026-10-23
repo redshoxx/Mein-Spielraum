@@ -1,10 +1,10 @@
 # Mein Spielraum · iPhone / SideStore
 
-Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Dunkles Design mit mintgrünen Akzenten. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
+Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Helles, kontrastreiches Design mit weißen Karten und dunkelblauer Schrift. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
 
-**Stand:** Version 0.3.10 wurde am 20.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 68 Swift-Tests und 4 Python-Tests bestanden. Ein Test auf einem echten iPhone steht noch aus.
+**Stand:** Version 0.3.14 wurde am 23.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 68 Swift-Tests, 6 Python-Prüfungen und 3 iPhone-Simulator-Prüfungen bestanden. Ein Test auf einem echten iPhone steht noch aus.
 
-**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/39271037563)
+**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/40017147882)
 
 ## Einmalige GitHub-Einrichtung
 
@@ -24,7 +24,7 @@ Nach dem ersten erfolgreichen Release:
 
 In SideStore im Bereich **Sources/Quellen** die Source-URL hinzufügen, dann „Mein Spielraum“ installieren. Alternativ die IPA in Safari laden und in SideStore importieren. SideStore muss bereits korrekt auf dem iPhone eingerichtet sein; seine Signierungs-, Geräte- und Netzwerkanforderungen gelten weiterhin.
 
-Die aktuellen Assets wurden im Release v0.3.10 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
+Die aktuellen Assets wurden im Release v0.3.14 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
 
 ## Neue Versionen
 
@@ -34,11 +34,11 @@ SideStore erkennt neue Versionen über die Source und bietet sie zum Aktualisier
 
 ## Nächste Fixkosten auf der Übersicht
 
-Auf der Startübersicht stehen die nächsten offenen Fixkosten nach Fälligkeit sortiert: Name, Betrag, genaues Datum und „Heute fällig“, „Morgen fällig“, „In X Tagen“ oder „X Tage überfällig“. Je Posten wird die nächste offene Zahlung angezeigt. Zunächst vier Einträge, weitere über **Alle anzeigen**. Nach einer Buchung erscheint der Folgetermin; abgeschlossene Posten entfallen. Offene Schlusszahlungen bleiben sichtbar. Bearbeiten und Buchen bleiben im Haushalt über das Zahnrad.
+Auf der Startübersicht stehen die nächsten offenen Fixkosten nach Fälligkeit sortiert: Name, Betrag, genaues Datum und „Heute fällig“, „Morgen fällig“, „In X Tagen“ oder „X Tage überfällig“. Je Posten wird die nächste offene Zahlung angezeigt. Zunächst zwei Einträge, weitere über **Alle anzeigen**. Nach einer Buchung erscheint der Folgetermin; abgeschlossene Posten entfallen. Offene Schlusszahlungen bleiben sichtbar. Bearbeiten und Buchen bleiben im Haushalt über das Zahnrad.
 
 ## Einnahmen, Fixkosten und Budget
 
-Über das **Zahnrad oben rechts in der Übersicht** öffnest du den eigenen Bereich **Haushalt**. Dort kannst du mehrere monatliche Einnahmen sowie monatliche, vierteljährliche oder jährliche Fixkosten erfassen. Jeder Posten hat einen Namen, einen Betrag je Zahlung und eine nächste Fälligkeit. Fixkosten können zusätzlich ein optionales Datum **Letzte Zahlung spätestens** erhalten. Reguläre Termine bis einschließlich dieses Datums zählen; danach werden keine neuen Fälligkeiten oder Reserven berechnet. Eine schon fällige, aber unbezahlte letzte Zahlung bleibt offen. Ohne Enddatum läuft der Posten unbegrenzt weiter. Über das Menü am Posten bearbeiten oder entfernen. Haushalt ist kein unterer Tab mehr; über den Zurück-Pfeil geht es wieder zur Übersicht.
+Über das **Zahnrad oben rechts in der Übersicht** öffnest du den eigenen Bereich **Haushalt**. Dort kannst du mehrere monatliche Einnahmen sowie monatliche, vierteljährliche oder jährliche Fixkosten erfassen. Jeder Posten hat einen Namen, einen Betrag je Zahlung und eine nächste Fälligkeit. Fixkosten können zusätzlich ein optionales Datum **Letzte Zahlung spätestens** erhalten. Reguläre Termine bis einschließlich dieses Datums zählen; danach werden keine neuen Fälligkeiten oder Reserven berechnet. Eine schon fällige, aber unbezahlte letzte Zahlung bleibt offen. Ohne Enddatum läuft der Posten unbegrenzt weiter. Über **Bearbeiten** am Posten ändern; **Weitere Aktionen** enthält das Entfernen. Haushalt ist kein unterer Tab mehr; über den Zurück-Pfeil geht es wieder zur Übersicht.
 
 - Die **monatliche Planung** zeigt Einnahmen, auf Monatsbeträge umgerechnete Fixkosten und den geplanten Rest. Vierteljährliche Beträge werden durch 3, jährliche durch 12 geteilt, bei Bruchteilen eines Cents aufgerundet. Variable Ausgaben und die zusätzliche pauschale Reserve sind hier nicht enthalten.
 - **Frei verfügbar = tatsächlicher Kontostand − offene Fixkosten bis Monatsende inklusive überfälliger Termine − zusätzliche Fixkostenreserve − Spartöpfe.**
@@ -79,17 +79,24 @@ Bei veraltetem manuellem Gehaltstag oder einer Planungslücke gibt es keine Kauf
 
 Im Automatikmodus wird die Berechnung bei Datenänderungen und beim Zeitwechsel aktualisiert. Nur ein manuell festgelegter Gehaltstag muss nach Ablauf erneuert werden. Vor Updates Backup exportieren, bestehende Installation behalten. Datenformate 1 und 2 werden auf Format 3 übernommen; neue Backups mit Assistent-Daten sind für alte App-Versionen nicht geeignet.
 
-## Neues Design und Benachrichtigungen
+## Lesbares Design und einfache Navigation
 
-Die Übersicht zeigt den geschätzten Spielraum in einer großen Mint-Karte, daneben Kontostand und Sparreserve als eigene Karten. Kaufbremse und Budget-Assistent sind direkt erreichbar. Der Haushalt bleibt hinter dem Zahnrad auf der Übersicht.
+Alle Bereiche verwenden ein helles Farbschema: weißer Kartenhintergrund, dunkelblaue Schrift, klar abgesetzte blaue Schaltflächen. Hilfstexte sind dunkel statt blass. Die verwendeten Text-/Flächenpaare sind rechnerisch auf mindestens 4,5:1 Kontrast geprüft; weiße Schrift auf der primären Schaltfläche erreicht mindestens 7:1. Das ersetzt keine vollständige Accessibility-Zertifizierung.
 
-Über die **Glocke** oder **Zahnrad → Haushalt → Benachrichtigungen** lokale Mitteilungen in iOS erlauben. Einzeln wählbar: nächste offene Fixkosten jeweils am Vortag und am Termin um 9 Uhr, Ende einer 48-Stunden-Kaufpause und täglicher Budgetcheck um 18 Uhr. Es werden keine Kontostände, Beträge oder Händlernamen auf dem Sperrbildschirm genannt.
+- **Übersicht:** geschätzter Spielraum, direkter Kaufcheck, nächste Fixkosten. Ausführliche Berechnungen sind aufklappbar.
+- **Haushalt:** über den beschrifteten Zahnrad-Knopf rechts oben. Auswahlmenü für Einnahmen, Fixkosten, Ausgaben, Budget, Benachrichtigungen und Datensicherung. Jeder Bereich lässt sich einzeln öffnen und über einen beschrifteten Zurück-Knopf verlassen.
+- **Spartöpfe:** sichtbare Aktionen **Geld verwalten**, **Bearbeiten** und **Neuer Spartopf**. Keine Suche nach einem kleinen Stift-Symbol nötig.
+- **Formulare:** dauerhaft sichtbare Feldnamen, große Eingabeflächen und eindeutiger Speichern-Knopf.
+- **Assistent:** Überblick, Kaufcheck und freiwillige Einordnung bestehender Einträge. Längere Erklärungen und die Amazon-Einrichtung sind eingeklappt.
+- Systemschriftgrößen werden berücksichtigt; bei großer Schrift wechselt der Übersichts-Kopf in eine Anordnung untereinander. Die App nutzt das helle Design auch bei systemweitem Dunkelmodus.
+
+Über **Haushalt → Benachrichtigungen** lokale Mitteilungen in iOS erlauben. Einzeln wählbar: nächste offene Fixkosten jeweils am Vortag und am Termin um 9 Uhr, Ende einer 48-Stunden-Kaufpause und täglicher Budgetcheck um 18 Uhr. Es werden keine Kontostände, Beträge oder Händlernamen auf dem Sperrbildschirm genannt.
 
 Die App plant maximal 58 einzelne Hinweise im nächsten 45-Tage-Fenster plus den wiederholten Tagescheck. Pro Fixkostenposten wird nur der nächste offene Termin berücksichtigt. Nach Buchung, Änderung oder Entfernen werden die ausstehenden Hinweise neu abgeglichen; überfällige Zahlungen werden zusammengefasst. Regelmäßig öffnen, damit neue Termine geplant werden. Fokus und iOS-Mitteilungseinstellungen beeinflussen die Zustellung. Einstellungen für Mitteilungen bleiben auf dem Gerät und sind nicht Teil des Finanz-Backups.
 
 ## Freiwillige Kaufbremse bei Amazon
 
-Die Schaltfläche **Vor dem Kaufen kurz stoppen** öffnet eine kurze Pause mit aktuellem Kauf-Richtwert, anschließend Preischeck und Wunschliste. Dieselbe Ansicht öffnet die Adresse `spielraum://kaufcheck`.
+Unter **Haushalt → Kaufbremse einrichten** öffnet eine kurze Pause mit aktuellem Kauf-Richtwert, anschließend Preischeck und Wunschliste. Dieselbe Ansicht öffnet die Adresse `spielraum://kaufcheck`.
 
 Einmal selbst in Apples Kurzbefehle-App einrichten:
 
@@ -105,7 +112,7 @@ Die genaue Benennung kann je nach iOS-Version abweichen. Die App zeigt diese Anl
 
 - Start und Backup-Prüfung laufen im Hintergrund mit Ladeanzeige. In Ausgaben-, Spartopf-, Budget- und Terminformularen wird ebenfalls im Hintergrund validiert und gespeichert. Währenddessen werden doppelte Eingaben und das Wegwischen des Formulars verhindert; erst ein erfolgreicher atomarer Schreibvorgang bestätigt die Änderung. Andere kleine Buchungsaktionen schreiben weiterhin synchron.
 - Euro-Formatierer werden wiederverwendet. Die Budgetauswertung wird pro Minute zwischengespeichert und bei jeder Änderung verworfen. Zahlungssummen werden anhand der Monate berechnet, statt alte Termine einzeln zu durchlaufen. Die Historie zeigt zunächst 30 Ausgaben, weitere bleiben nachladbar. Alle Einträge bleiben gespeichert.
-- **Haushalt → Ausgaben → … → Bearbeiten** korrigiert Name, Betrag, Händler, Kategorie und Einordnung bei gleichem Eintrag und Datum. Nur die Betragsdifferenz wird verrechnet. Bei einer Notfallausgabe wird eine vorhandene Notfallreserve entsprechend abgeglichen. Nach Topflöschung sind Rückerstattungen möglich, weitere Entnahmen daraus werden abgelehnt. Zwischenzeitlich geänderte Einträge müssen neu geöffnet werden.
+- **Haushalt → Ausgaben → Bearbeiten** korrigiert Name, Betrag, Händler, Kategorie und Einordnung bei gleichem Eintrag und Datum. Nur die Betragsdifferenz wird verrechnet. Bei einer Notfallausgabe wird eine vorhandene Notfallreserve entsprechend abgeglichen. Nach Topflöschung sind Rückerstattungen möglich, weitere Entnahmen daraus werden abgelehnt. Zwischenzeitlich geänderte Einträge müssen neu geöffnet werden.
 - Neben `spielraum-v1.json` entstehen beim Ändern bis zu zwei vorherige geprüfte Stände (`spielraum-previous.json`, `spielraum-recovery.json`). Neue Speicherdateien und Exporte nutzen vollständigen iOS-Dateischutz. Es gibt keinen neuen Cloud-Dienst und kein separates Verschlüsselungspasswort.
 - Bei einer beschädigten oder fehlenden Hauptdatei erscheinen keine leeren Ersatzdaten. Die App bietet eine geprüfte vorhandene Sicherung zur ausdrücklichen Wiederherstellung an oder akzeptiert ein externes Backup aus Dateien. Die bisherige Hauptdatei wird vor dem Ersetzen separat aufbewahrt. Ein früherer Stand kann jüngste Änderungen noch nicht enthalten.
 - Import und Speicherung haben dieselbe Grenze von 32 MB. Unplausible Datumseinträge und ungültige Geldwerte werden abgelehnt. Lokale Kopien schützen nicht bei Verlust oder Löschen des iPhones: regelmäßig über **Backup erstellen** extern sichern. Geteilte JSON-Backups sind lesbar und sollten privat aufbewahrt werden.
@@ -124,7 +131,7 @@ Auf macOS mit Xcode und Homebrew:
 
 Für den Simulator den generierten Scheme `MeinSpielraum` wählen. Für einen signierten Direktstart auf einem eigenen iPhone in Xcode ein eigenes Team konfigurieren; für den GitHub-/SideStore-Weg ist das nicht nötig.
 
-Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 68 Swift-Tests, vier Python-Tests, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.10 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
+Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 68 Swift-Tests, sechs Python-Prüfungen, drei Simulator-Bedienprüfungen, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.14 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
 
 ## Verwendete Dokumentation
 
