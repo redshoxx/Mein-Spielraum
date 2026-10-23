@@ -67,7 +67,7 @@ struct ContentView: View {
                 case .purchaseGuard: PurchaseGuardView()
                 default: EditorView(editor: entry)
                 }
-            }.environmentObject(store).preferredColorScheme(.light)
+            }.environmentObject(store).preferredColorScheme(.dark)
                 .disabled(store.isSaving).interactiveDismissDisabled(store.isSaving)
                 .overlay { if store.isSaving { ProgressView("Wird gespeichert …").padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
         }
@@ -469,7 +469,7 @@ struct ContentView: View {
 private struct MintButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { configuration.label.buttonStyle(PrimaryAction())
         .font(.headline).foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 54).padding(.horizontal, 12)
-        .background(mint, in: RoundedRectangle(cornerRadius: 12)) }
+        .background(SpielraumTheme.primary, in: RoundedRectangle(cornerRadius: 12)) }
 }
 
 private struct EditorView: View {

@@ -4,7 +4,7 @@ import SwiftUI
     @StateObject private var notifications = BudgetNotifications()
     var body: some Scene {
         WindowGroup {
-            ContentView().environmentObject(store).environmentObject(notifications).preferredColorScheme(.light)
+            ContentView().environmentObject(store).environmentObject(notifications).preferredColorScheme(.dark)
         }
     }
 }

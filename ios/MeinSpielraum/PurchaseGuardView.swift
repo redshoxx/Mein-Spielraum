@@ -26,7 +26,7 @@ struct PurchaseGuardView: View {
                         Button { checkOpen = true } label: {
                             Label(remaining > 0 ? "\(remaining) Sekunden Abstand" : "Preis prüfen & Wunsch vormerken", systemImage: remaining > 0 ? "hourglass" : "checkmark.shield")
                                 .font(.headline).foregroundStyle(remaining > 0 ? SpielraumTheme.text : Color.white).frame(maxWidth: .infinity).padding(18)
-                                .background(remaining > 0 ? SpielraumTheme.soft : SpielraumTheme.mint, in: RoundedRectangle(cornerRadius: 14))
+                                .background(remaining > 0 ? SpielraumTheme.soft : SpielraumTheme.primary, in: RoundedRectangle(cornerRadius: 14))
                         }.disabled(remaining > 0)
                     }
                     Text("Wünsche bleiben 48 Stunden auf deiner Liste. Notfälle kannst du im Assistenten direkt erfassen.").font(.subheadline).foregroundStyle(SpielraumTheme.muted)

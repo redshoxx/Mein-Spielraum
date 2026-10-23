@@ -1,10 +1,8 @@
-Komplett neu gestaltet: lesbar und einfacher zu bedienen
+Angenehm dunkler und weiterhin gut lesbar
 
-- Helle Oberfläche mit weißen Karten, dunkelblauer Schrift und kontrastreichen Schaltflächen in allen Bereichen.
-- Übersicht auf den freien Spielraum und die nächsten Zahlungen reduziert. Berechnungsdetails lassen sich aufklappen.
-- Haushalt mit eigenem Auswahlmenü für Einnahmen, Fixkosten, Ausgaben und Datensicherung.
-- Spartöpfe mit deutlich beschrifteten Knöpfen zum Verwalten und Bearbeiten.
-- Eingabefelder mit dauerhaft sichtbaren Beschriftungen, größere Bedienelemente und Unterstützung großer iPhone-Schrift.
-- Assistent, Kaufcheck, Kaufbremse und Benachrichtigungen auf die neue Gestaltung abgestimmt.
-- Farbkontraste automatisch geprüft; iPhone-Simulator-Prüfung für Navigation, Formulare und große Schrift ergänzt.
-- Bestehende Finanzdaten, Backups und Berechnungen bleiben erhalten.
+- Anthrazitfarbener Hintergrund und dunkle Karten statt großer weißer Flächen.
+- Helle Schrift, zurückhaltende blaue Akzente und dunkle blaue Aktionsflächen.
+- Alle Formulare, Haushalt, Assistent und Mitteilungen auf dunkle Systemdarstellung umgestellt.
+- Vereinfachte Navigation und größere Bedienelemente bleiben erhalten.
+- Farbkontraste und iPhone-12-Simulator werden erneut geprüft.
+- Finanzdaten und Berechnungen unverändert.

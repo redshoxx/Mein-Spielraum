@@ -1,16 +1,18 @@
 import SwiftUI
 
 enum SpielraumTheme {
-    static let mint = Color(hex: 0x154C96) // Kept as an alias for existing call sites.
-    static let canvas = Color(hex: 0xF3F5F8)
-    static let surface = Color(hex: 0xFFFFFF)
-    static let text = Color(hex: 0x172B40)
-    static let muted = Color(hex: 0x46576D)
-    static let soft = Color(hex: 0xE9F0FB)
-    static let border = Color(hex: 0xCFD8E4)
-    static let positive = Color(hex: 0x166534)
-    static let warning = Color(hex: 0x873600)
-    static let danger = Color(hex: 0xB42318)
+    static let mint = Color(hex: 0x8AB8FF) // Kept as an alias for existing call sites.
+    static let primary = Color(hex: 0x215399)
+    static let primaryPressed = Color(hex: 0x183D73)
+    static let canvas = Color(hex: 0x171C24)
+    static let surface = Color(hex: 0x222A35)
+    static let text = Color(hex: 0xEEF2F7)
+    static let muted = Color(hex: 0xBBC7D6)
+    static let soft = Color(hex: 0x2A3545)
+    static let border = Color(hex: 0x48566B)
+    static let positive = Color(hex: 0x85D6A1)
+    static let warning = Color(hex: 0xFFC68A)
+    static let danger = Color(hex: 0xFFA5A5)
 }
 private extension Color {
     init(hex: UInt32) {
@@ -24,7 +26,7 @@ extension View {
     }
     func readableScreen() -> some View {
         self.foregroundStyle(SpielraumTheme.text).tint(SpielraumTheme.mint)
-            .preferredColorScheme(.light)
+            .preferredColorScheme(.dark)
             .scrollContentBackground(.hidden).background(SpielraumTheme.canvas)
             .environment(\.defaultMinListRowHeight, 56)
     }
@@ -34,7 +36,7 @@ struct PrimaryAction: ButtonStyle {
         configuration.label.font(.headline).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 54)
             .padding(.horizontal, 14).padding(.vertical, 4)
-            .background(configuration.isPressed ? SpielraumTheme.text : SpielraumTheme.mint, in: RoundedRectangle(cornerRadius: 12))
+            .background(configuration.isPressed ? SpielraumTheme.primaryPressed : SpielraumTheme.primary, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 struct MenuRow: View {

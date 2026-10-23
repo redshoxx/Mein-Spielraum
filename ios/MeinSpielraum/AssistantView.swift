@@ -57,7 +57,7 @@ struct AssistantView: View {
                     .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 52).padding(.horizontal, 6)
                     .foregroundStyle(tab == index ? Color.white : SpielraumTheme.text)
-                    .background(tab == index ? SpielraumTheme.mint : SpielraumTheme.soft, in: RoundedRectangle(cornerRadius: 10))
+                    .background(tab == index ? SpielraumTheme.primary : SpielraumTheme.soft, in: RoundedRectangle(cornerRadius: 10))
             }.buttonStyle(.plain).accessibilityAddTraits(tab == index ? .isSelected : [])
         }
     }

@@ -23,6 +23,7 @@ class DesignTests(unittest.TestCase):
             for background in ('surface', 'canvas'):
                 with self.subTest(foreground=foreground, background=background):
                     self.assertGreaterEqual(contrast(COLORS[foreground], COLORS[background]), 4.5)
-        self.assertGreaterEqual(contrast('FFFFFF', COLORS['mint']), 7)
+        for background in ('primary', 'primaryPressed'):
+            self.assertGreaterEqual(contrast('FFFFFF', COLORS[background]), 7)
 if __name__ == '__main__':
     unittest.main()
