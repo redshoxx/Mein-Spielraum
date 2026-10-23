@@ -64,12 +64,12 @@ struct AssistantView: View {
                     value("Alltag bis Planungsende", analysis.essentialReserve)
                     value("Sicherheitspuffer", analysis.buffer)
                     value("Noch zusätzlich sparen", analysis.extraSavings)
-                    Text("Künftiges Gehalt wird nicht als vorhandenes Guthaben gerechnet. Offene Fixkosten werden mindestens bis Monatsende und bis zum Planungsende berücksichtigt. Dein Wochenlimit gilt zusätzlich.").font(.body).foregroundStyle(.secondary)
+                    Text("Künftiges Gehalt wird nicht als vorhandenes Guthaben gerechnet. Offene Fixkosten werden mindestens bis Monatsende und bis zum Planungsende berücksichtigt. Dein Wochenlimit gilt zusätzlich.").font(.body).foregroundStyle(SpielraumTheme.muted)
                 }
                 }
                 Section("Sparen") {
                     value("Vorsichtiger Zusatzvorschlag", analysis.additionalSavingsSuggestion)
-                    Text("Nur ein Vorschlag, keine Überweisung. Unter Spartöpfe kannst du Geld reservieren. Das reduziert den noch zusätzlich geplanten Sparbetrag, damit er nicht doppelt abgezogen wird.").font(.body).foregroundStyle(.secondary)
+                    Text("Nur ein Vorschlag, keine Überweisung. Unter Spartöpfe kannst du Geld reservieren. Das reduziert den noch zusätzlich geplanten Sparbetrag, damit er nicht doppelt abgezogen wird.").font(.body).foregroundStyle(SpielraumTheme.muted)
                 }
             }
         }
@@ -94,7 +94,7 @@ struct AssistantView: View {
                         if error == nil { emergencyAmount = ""; emergencyName = ""; message = "Notfall erfasst. Die Reserve wurde angepasst; prüfe deinen Sparplan zum Wiederaufbauen." }
                     } catch { self.error = error.localizedDescription }
                 }
-                Text("Erfasst die Ausgabe sofort aus deinem Notfalltopf. Keine Wartezeit, kein Kredit und keine reale Banküberweisung. Reicht die Reserve nicht, wird die Lücke angezeigt.").font(.body).foregroundStyle(.secondary)
+                Text("Erfasst die Ausgabe sofort aus deinem Notfalltopf. Keine Wartezeit, kein Kredit und keine reale Banküberweisung. Reicht die Reserve nicht, wird die Lücke angezeigt.").font(.body).foregroundStyle(SpielraumTheme.muted)
             } else { Text("Wähle in den Assistent-Einstellungen einen vorhandenen Spartopf als Notfallreserve."); Button("Notfalltopf wählen") { settingsOpen = true } }
         }
     }
@@ -111,7 +111,7 @@ struct AssistantView: View {
             }
             if let estimate = store.budget.necessityEstimate(merchant: merchant, category: category) {
                 Text(estimate.probability >= 0.7 ? "Aus deinen Markierungen eher notwendig – bitte selbst prüfen." : estimate.probability <= 0.3 ? "Aus deinen Markierungen eher ein Wunsch." : "Deine Markierungen sind gemischt; keine klare Einordnung.").font(.subheadline)
-                Text("\(estimate.basis) · \(estimate.samples) Beispiele. Der Händler verrät nicht, was du tatsächlich gekauft hast.").font(.body).foregroundStyle(.secondary)
+                Text("\(estimate.basis) · \(estimate.samples) Beispiele. Der Händler verrät nicht, was du tatsächlich gekauft hast.").font(.body).foregroundStyle(SpielraumTheme.muted)
             }
             Button("Wunsch 48 Stunden vormerken") {
                 do {
@@ -124,15 +124,15 @@ struct AssistantView: View {
             }
         }
         Section("Deine Wunschliste") {
-            if store.budget.wishes.isEmpty { Text("Noch keine Wünsche. Die Kaufpause gibt dir Zeit, den Kauf zu überdenken.").foregroundStyle(.secondary) }
+            if store.budget.wishes.isEmpty { Text("Noch keine Wünsche. Die Kaufpause gibt dir Zeit, den Kauf zu überdenken.").foregroundStyle(SpielraumTheme.muted) }
             ForEach(store.budget.wishes) { wish in wishRow(wish) }
         }
     }
     private func wishRow(_ wish: PurchaseWish) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack { Text(wish.name).fontWeight(.semibold); Spacer(); Text(Euro.format(wish.cents)) }
-            if wish.readyAt > now { Text("Kaufpause bis \(wish.readyAt.formatted(date: .abbreviated, time: .shortened))").font(.body).foregroundStyle(.secondary) }
-            else { Text("Kaufpause vorbei. Passt der Wunsch noch zu deinem Ziel?").font(.body).foregroundStyle(.secondary) }
+            if wish.readyAt > now { Text("Kaufpause bis \(wish.readyAt.formatted(date: .abbreviated, time: .shortened))").font(.body).foregroundStyle(SpielraumTheme.muted) }
+            else { Text("Kaufpause vorbei. Passt der Wunsch noch zu deinem Ziel?").font(.body).foregroundStyle(SpielraumTheme.muted) }
             Button("Gekauft · Ausgabe erfassen") { apply { try $0.buyWish(id: wish.id, now: now) } }.disabled(wish.readyAt > now || !analysis.ready || wish.cents > analysis.purchaseLimit)
             Button("Verzichten / entfernen", role: .destructive) { apply { $0.wishes.removeAll { $0.id == wish.id } } }
         }.padding(.vertical, 5)
@@ -143,7 +143,7 @@ struct AssistantView: View {
 
             value("Dein Mindestbedarf / Woche", store.budget.assistant.essentialWeekly)
             value("Aktueller Ansatz / Woche", analysis.essentialWeekly)
-            Text("\(analysis.learnedWeeks) vollständige Wochen · \(analysis.learnedSamples) berücksichtigte Ausgaben im Lernfenster. Nicht eingetragene Ausgaben kennt der Assistent nicht.").font(.body).foregroundStyle(.secondary)
+            Text("\(analysis.learnedWeeks) vollständige Wochen · \(analysis.learnedSamples) berücksichtigte Ausgaben im Lernfenster. Nicht eingetragene Ausgaben kennt der Assistent nicht.").font(.body).foregroundStyle(SpielraumTheme.muted)
             let withdrawals = store.budget.reserveMovements.filter { $0.cents < 0 && !$0.emergency && $0.date >= now.addingTimeInterval(-30 * 86400) }
             if !withdrawals.isEmpty { Text("\(withdrawals.count) Entnahmen aus Spartöpfen in 30 Tagen. Prüfe vor einer weiteren Entnahme Wunschliste und Sparziel.").foregroundStyle(SpielraumTheme.warning) }
         }
@@ -153,7 +153,7 @@ struct AssistantView: View {
             ForEach(store.budget.expenses.prefix(25)) { expense in
                 VStack(alignment: .leading, spacing: 5) {
                     Text("\(expense.title) · \(Euro.format(expense.cents))").fontWeight(.semibold)
-                    if let merchant = expense.merchant, !merchant.isEmpty { Text(merchant).font(.body).foregroundStyle(.secondary) }
+                    if let merchant = expense.merchant, !merchant.isEmpty { Text(merchant).font(.body).foregroundStyle(SpielraumTheme.muted) }
                     Picker("Einordnung", selection: Binding<ExpensePurpose?>(get: { expense.purpose }, set: { purpose in
                         apply { $0.labelExpense(id: expense.id, purpose: purpose) }
                     })) {

@@ -143,7 +143,7 @@ struct ContentView: View {
             pendingPurchaseGuard = false; notifications.route = nil; editor = .purchaseGuard
         } else if let route = notifications.route {
             notifications.route = nil
-            if route == "payments" { editor = nil; page = .household }
+            if route == "payments" { editor = nil; householdArea = .fixed; page = .household }
             else { editor = route == "wish" ? .wishes : .purchaseGuard }
         }
     }
@@ -377,28 +377,19 @@ struct ContentView: View {
     private func recurringSection(_ kind: PaymentKind) -> some View {
         let entries = store.budget.payments.filter { $0.kind == kind }.sorted { $0.nextDue() < $1.nextDue() }
         return VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text(kind == .income ? "Monatliche Einnahmen" : "Fixkosten mit Termin").font(.title2.bold())
-                Spacer()
-                Button { editor = .payment(kind, nil) } label: { Image(systemName: "plus").frame(width: 44, height: 44) }.accessibilityLabel(kind == .income ? "Einnahme hinzufügen" : "Fixkosten hinzufügen")
-            }
+            Text(kind == .income ? "Monatliche Einnahmen" : "Fixkosten mit Termin").font(.title2.bold())
+            Button(kind == .income ? "Einnahme hinzufügen" : "Fixkosten hinzufügen", systemImage: "plus") { editor = .payment(kind, nil) }.buttonStyle(PrimaryAction())
             if entries.isEmpty { Text(kind == .income ? "Trage zum Beispiel Gehalt oder eine monatliche Unterstützung ein." : "Zum Beispiel Miete, Strom oder eine Jahresversicherung.").font(.subheadline).foregroundStyle(secondary) }
             ForEach(entries) { p in
                 VStack(alignment: .leading, spacing: 9) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(p.name).fontWeight(.semibold)
-                            Text(p.hasPendingOccurrence() ? "\(p.cadence.title) · \(p.nextDue().formatted(date: .abbreviated, time: .omitted))" : "Abgeschlossen · alle Termine gebucht").font(.subheadline).foregroundStyle(secondary)
-                            if let end = p.endDate { Text("Zahlungen bis \(end.formatted(date: .abbreviated, time: .omitted))").font(.subheadline).foregroundStyle(secondary) }
-                            if p.kind == .fixedCost && p.cadence != .monthly && p.isActiveForPlanning(now: now) { Text("Ca. \(Euro.format(p.monthlyEquivalent)) / Monat").font(.subheadline).foregroundStyle(secondary) }
-                        }
-                        Spacer(minLength: 5)
-                        Text(Euro.format(p.cents)).fontWeight(.semibold).monospacedDigit()
-                        Menu {
-                            Button("Bearbeiten", systemImage: "pencil") { editor = .payment(kind, p.id) }
-                            Button("Entfernen", systemImage: "trash", role: .destructive) { removingPayment = p }
-                        } label: { Label("Ändern", systemImage: "ellipsis").font(.body).frame(minHeight: 48) }.accessibilityLabel("\(p.name) verwalten")
-                    }
+                    Text(p.name).font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
+                    Text(Euro.format(p.cents)).font(.title2.bold()).foregroundStyle(mint)
+                    Text(p.hasPendingOccurrence() ? "\(p.cadence.title) · \(p.nextDue().formatted(date: .abbreviated, time: .omitted))" : "Abgeschlossen · alle Termine gebucht").font(.body).foregroundStyle(secondary)
+                    if let end = p.endDate { Text("Letzte Zahlung bis \(end.formatted(date: .abbreviated, time: .omitted))").font(.body).foregroundStyle(secondary) }
+                    HStack(spacing: 20) {
+                        Button("Bearbeiten") { editor = .payment(kind, p.id) }.frame(minHeight: 52)
+                        Menu("Weitere Aktionen") { Button("Entfernen", systemImage: "trash", role: .destructive) { removingPayment = p } }.frame(minHeight: 52)
+                    }.font(.body.weight(.semibold))
                     if p.isDue(now: now) {
                         Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") { pendingPayment = p }.font(.subheadline.weight(.semibold)).frame(minHeight: 36)
                         Text("Termin fällig oder überfällig").font(.subheadline).foregroundStyle(SpielraumTheme.warning)
@@ -406,7 +397,6 @@ struct ContentView: View {
                 }
                 Divider()
             }
-            Button(kind == .income ? "Einnahme hinzufügen" : "Fixkosten hinzufügen", systemImage: "plus") { editor = .payment(kind, nil) }
         }
     }
     private var recurringHistory: some View {
