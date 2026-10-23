@@ -1,10 +1,10 @@
 # Mein Spielraum · iPhone / SideStore
 
-Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Helles, kontrastreiches Design mit weißen Karten und dunkelblauer Schrift. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
+Native SwiftUI-App für iPhone 12 und andere iPhones mit iOS 17 oder neuer. Dunkles, kontrastreiches Design mit Anthrazitflächen, heller Schrift und blauen Akzenten. Keine Anmeldung, keine Bankanbindung, keine Serverübertragung deiner Haushaltsdaten.
 
-**Stand:** Version 0.3.14 wurde am 23.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 68 Swift-Tests, 6 Python-Prüfungen und 3 iPhone-Simulator-Prüfungen bestanden. Ein Test auf einem echten iPhone steht noch aus.
+**Stand:** Version 0.3.15 wurde am 23.10.2026 erfolgreich auf GitHub gebaut und veröffentlicht. 68 Swift-Tests, 6 Python-Prüfungen und 3 iPhone-Simulator-Prüfungen bestanden. Ein Test auf einem echten iPhone steht noch aus.
 
-**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/40017147882)
+**Jetzt installieren:** [IPA herunterladen](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/Mein-Spielraum.ipa) · [SideStore-Source](https://github.com/redshoxx/Mein-Spielraum/releases/latest/download/source.json) · [Erfolgreicher Build](https://github.com/redshoxx/Mein-Spielraum/actions/runs/40019259781)
 
 ## Einmalige GitHub-Einrichtung
 
@@ -24,7 +24,7 @@ Nach dem ersten erfolgreichen Release:
 
 In SideStore im Bereich **Sources/Quellen** die Source-URL hinzufügen, dann „Mein Spielraum“ installieren. Alternativ die IPA in Safari laden und in SideStore importieren. SideStore muss bereits korrekt auf dem iPhone eingerichtet sein; seine Signierungs-, Geräte- und Netzwerkanforderungen gelten weiterhin.
 
-Die aktuellen Assets wurden im Release v0.3.14 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
+Die aktuellen Assets wurden im Release v0.3.15 veröffentlicht. Der Workflow verwendet dynamisch den tatsächlichen Repository-Namen; bei einem Fork die Installationslinks entsprechend anpassen.
 
 ## Neue Versionen
 
@@ -81,14 +81,14 @@ Im Automatikmodus wird die Berechnung bei Datenänderungen und beim Zeitwechsel 
 
 ## Lesbares Design und einfache Navigation
 
-Alle Bereiche verwenden ein helles Farbschema: weißer Kartenhintergrund, dunkelblaue Schrift, klar abgesetzte blaue Schaltflächen. Hilfstexte sind dunkel statt blass. Die verwendeten Text-/Flächenpaare sind rechnerisch auf mindestens 4,5:1 Kontrast geprüft; weiße Schrift auf der primären Schaltfläche erreicht mindestens 7:1. Das ersetzt keine vollständige Accessibility-Zertifizierung.
+Alle Bereiche verwenden ein dunkles Farbschema: Anthrazit als Hintergrund, leicht hellere Karten, gut lesbare helle Schrift und dunkelblaue Aktionsflächen. Hilfstexte sind klar von den dunklen Flächen abgesetzt. Die verwendeten Text-/Flächenpaare sind rechnerisch auf mindestens 4,5:1 Kontrast geprüft; weiße Schrift auf der primären Schaltfläche erreicht mindestens 7:1. Das ersetzt keine vollständige Accessibility-Zertifizierung.
 
 - **Übersicht:** geschätzter Spielraum, direkter Kaufcheck, nächste Fixkosten. Ausführliche Berechnungen sind aufklappbar.
 - **Haushalt:** über den beschrifteten Zahnrad-Knopf rechts oben. Auswahlmenü für Einnahmen, Fixkosten, Ausgaben, Budget, Benachrichtigungen und Datensicherung. Jeder Bereich lässt sich einzeln öffnen und über einen beschrifteten Zurück-Knopf verlassen.
 - **Spartöpfe:** sichtbare Aktionen **Geld verwalten**, **Bearbeiten** und **Neuer Spartopf**. Keine Suche nach einem kleinen Stift-Symbol nötig.
 - **Formulare:** dauerhaft sichtbare Feldnamen, große Eingabeflächen und eindeutiger Speichern-Knopf.
 - **Assistent:** Überblick, Kaufcheck und freiwillige Einordnung bestehender Einträge. Längere Erklärungen und die Amazon-Einrichtung sind eingeklappt.
-- Systemschriftgrößen werden berücksichtigt; bei großer Schrift wechselt der Übersichts-Kopf in eine Anordnung untereinander. Die App nutzt das helle Design auch bei systemweitem Dunkelmodus.
+- Systemschriftgrößen werden berücksichtigt; bei großer Schrift wechselt der Übersichts-Kopf in eine Anordnung untereinander. Die App nutzt durchgehend die dunkle Systemdarstellung, einschließlich Formularen und Dialogen.
 
 Über **Haushalt → Benachrichtigungen** lokale Mitteilungen in iOS erlauben. Einzeln wählbar: nächste offene Fixkosten jeweils am Vortag und am Termin um 9 Uhr, Ende einer 48-Stunden-Kaufpause und täglicher Budgetcheck um 18 Uhr. Es werden keine Kontostände, Beträge oder Händlernamen auf dem Sperrbildschirm genannt.
 
@@ -131,7 +131,7 @@ Auf macOS mit Xcode und Homebrew:
 
 Für den Simulator den generierten Scheme `MeinSpielraum` wählen. Für einen signierten Direktstart auf einem eigenen iPhone in Xcode ein eigenes Team konfigurieren; für den GitHub-/SideStore-Weg ist das nicht nötig.
 
-Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 68 Swift-Tests, sechs Python-Prüfungen, drei Simulator-Bedienprüfungen, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.14 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
+Vorbereitet sind Tests für Cent-Eingaben, Reservieren ohne Doppelabzug, Freigeben, Ausgabe rückgängig machen, JSON-Roundtrip und Wochenwechsel. 68 Swift-Tests, sechs Python-Prüfungen, drei Simulator-Bedienprüfungen, der Xcode-Gerätebuild und die IPA-Metadatenprüfung liefen für Version 0.3.15 erfolgreich durch. Die Installation auf einem echten iPhone ist noch nicht geprüft.
 
 ## Verwendete Dokumentation
 

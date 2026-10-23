@@ -1,7 +1,7 @@
-# Prüfstand · Version 0.3.14
+# Prüfstand · Version 0.3.15
 
-Build: https://github.com/redshoxx/Mein-Spielraum/actions/runs/40017147882
-Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.3.14
+Build: https://github.com/redshoxx/Mein-Spielraum/actions/runs/40019259781
+Release: https://github.com/redshoxx/Mein-Spielraum/releases/tag/v0.3.15
 
 - 68 Swift-Tests bestanden, einschließlich 12 Assistent-Tests.
 - 4 Python-Source-Tests und 2 Kontrast-Prüfungen bestanden.
@@ -48,12 +48,12 @@ Nicht auf echtem Gerät geprüft: tatsächliche Start-/Bearbeitungszeiten, Verha
 
 ## Vollständige Überarbeitung der Lesbarkeit
 
-Neue gemeinsame Palette mit hellen Flächen und dunkelblauer Schrift; die neuen beiden Farbtests prüfen 15 Kombinationen einschließlich sekundärer Texte und Statusfarben sowie den weißen Text auf der primären Schaltfläche. Alle verwendeten Schrift-/Flächenpaare erreichen im Rechentest mindestens 4,5:1, der primäre Button mindestens 7:1. Native Systemkomponenten und deaktivierte Zustände sind davon nicht pauschal zertifiziert.
+Gemeinsame dunkle Palette mit Anthrazitflächen und heller Schrift. Die beiden Farbtests prüfen 16 Kombinationen einschließlich sekundärer Texte und Statusfarben sowie weißen Text auf der normalen und gedrückten primären Schaltfläche. Die hellblauen Textakzente und dunkelblauen Aktionsflächen sind getrennte Farben, damit beide lesbar bleiben. Alle verwendeten Schrift-/Flächenpaare erreichen im Rechentest mindestens 4,5:1, der primäre Button mindestens 7:1. Native Systemkomponenten und deaktivierte Zustände sind davon nicht pauschal zertifiziert.
 
 Drei Simulator-Bedienprüfungen decken Übersicht, Haushalt, Einnahmen, Budgetformular, Spartöpfe/Bearbeiten, Ausgabeformular, Kaufcheck, Assistent und Benachrichtigungen sowie Navigation mit großer Schrift ab. Screenshots werden als UI-Screenshots.zip im Release bereitgestellt. Die Debug-Vorschau verwendet isolierte Beispieldaten in einem temporären Ordner; der Release-Build enthält keinen aktiven Testmodus.
 
 Kein Test auf einem physischen iPhone; VoiceOver und alle Größen-/Sprachkombinationen sind nicht vollständig geprüft. Finanzmodell, gespeicherte Dateiformate, Sicherungskopien und Berechnungen wurden für dieses Redesign nicht verändert.
 
-Visuelle Nachprüfung: Die erste Simulator-Bildserie zeigte abgeschnittene Erklärungen und zu breite Navigationslabels bei großer Schrift. Version 0.3.14 erzwingt vertikalen Textumbruch, verwendet kürzere sichtbare Navigationsnamen bei Accessibility-Schriftgrößen und ersetzt die kleine Segmentauswahl im Assistenten durch größere Textschaltflächen.
+Visuelle Nachprüfung: Die erste Simulator-Bildserie zeigte abgeschnittene Erklärungen und zu breite Navigationslabels bei großer Schrift. Seit Version 0.3.14 erzwingt die App vertikalen Textumbruch, verwendet kürzere sichtbare Navigationsnamen bei Accessibility-Schriftgrößen und ersetzt die kleine Segmentauswahl im Assistenten durch größere Textschaltflächen.
 
-Die finale Bildschirmserie von 0.3.14 wurde visuell nachgeprüft: Übersicht und Haushalt mit großer Schrift sowie Übersicht und Assistent mit normaler Schrift. Die zuvor abgeschnittenen Beschriftungen und der überbreite untere Navigationsbereich sind in diesen Ansichten behoben. Alle 3 Simulator-Bedienprüfungen und der Gerätebuild dieses Releases sind erfolgreich.
+Die finale dunkle Bildschirmserie von 0.3.15 wurde visuell nachgeprüft: Übersicht mit normaler und großer Schrift, Budgetformular, Assistent und Mitteilungen. Dunkle Flächen, gut lesbare Beschriftungen und die Navigation sind in diesen Ansichten bestätigt. Alle drei Simulator-Bedienprüfungen und der Gerätebuild sind erfolgreich.
