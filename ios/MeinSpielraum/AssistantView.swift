@@ -9,6 +9,7 @@ struct AssistantView: View {
     @State private var tab: Int
     init(initialTab: Int = 0) { _tab = State(initialValue: initialTab) }
     @State private var settingsOpen = false
+    @State private var emergencyOpen = false
     @State private var amount = ""
     @State private var name = ""
     @State private var merchant = ""
@@ -23,22 +24,24 @@ struct AssistantView: View {
     var body: some View {
         NavigationStack {
             List {
-                Picker("Bereich", selection: $tab) { Text("Überblick").tag(0); Text("Kaufcheck").tag(1); Text("Lernen").tag(2) }.pickerStyle(.segmented)
+                Picker("Bereich", selection: $tab) { Text("Überblick").tag(0); Text("Kaufcheck").tag(1); Text("Einträge").tag(2) }.pickerStyle(.segmented)
                 if tab == 0 { planSections }
                 else if tab == 1 { purchaseSections }
                 else { learningSections }
-                Section { Text("Lokal lernender Algorithmus, kein Chatbot. Er startet ohne Plan und nutzt deine Einträge. Rückmeldungen sind optional. Keine Verbindung zu George, keine Banksperre und keine automatischen Überweisungen. Prognosen sind Schätzungen.").font(.caption).foregroundStyle(.secondary) }
+                Section { DisclosureGroup("Was weiß der Assistent?") {
+                    Text("Er schätzt anhand deiner Einträge. Er kennt keine Umsätze aus deiner Bank-App und führt keine Überweisungen aus.").font(.body).foregroundStyle(SpielraumTheme.muted).padding(.vertical, 8)
+                } }
             }
             .navigationTitle("Budget-Assistent").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) { Button { settingsOpen = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Assistent anpassen") }
+                ToolbarItem(placement: .primaryAction) { Button("Anpassen") { settingsOpen = true }.accessibilityLabel("Assistent anpassen") }
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } }
             }
             .sheet(isPresented: $settingsOpen) { AssistantSettingsView().environmentObject(store) }
             .alert("Hinweis", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("OK", role: .cancel) { error = nil } } message: { Text(error ?? "") }
             .onReceive(timer) { now = $0 }
-        }.tint(assistMint).preferredColorScheme(.dark)
+        }.readableScreen()
     }
     @ViewBuilder private var planSections: some View {
         if !store.budget.assistant.usesAutomatic && !store.budget.assistant.configured {
@@ -49,38 +52,41 @@ struct AssistantView: View {
         } else {
             Section("Richtwert für freie Wünsche") {
                 Text(Euro.format(analysis.purchaseLimit)).font(.system(size: 36, weight: .bold)).foregroundStyle(assistMint)
-                Text(analysis.explanation).font(.subheadline)
+                DisclosureGroup("Warum dieser Betrag?") { Text(analysis.explanation).font(.body).foregroundStyle(SpielraumTheme.muted).padding(.vertical, 10) }
                 if let payday = analysis.payday { Text("Planungsende \(payday.formatted(date: .abbreviated, time: .omitted)) · \(analysis.days) Tage") }
                 if !analysis.ready { Button("Gehaltstag prüfen") { settingsOpen = true } }
-                if analysis.shortfall > 0 { Text("Im Plan fehlen \(Euro.format(analysis.shortfall)). Keine freien Wünsche empfohlen; Plan und Kontostand prüfen.").foregroundStyle(.orange) }
+                if analysis.shortfall > 0 { Text("Im Plan fehlen \(Euro.format(analysis.shortfall)). Keine freien Wünsche empfohlen; Plan und Kontostand prüfen.").foregroundStyle(SpielraumTheme.warning) }
             }
             if analysis.ready {
-                Section("Was vorher geschützt bleibt") {
+                Section { DisclosureGroup("Zurückgelegtes Geld ansehen") {
                     value("Offene Fixkosten", analysis.fixedReserve)
                     value("Bereits in Spartöpfen", store.budget.reserved)
                     value("Alltag bis Planungsende", analysis.essentialReserve)
                     value("Sicherheitspuffer", analysis.buffer)
                     value("Noch zusätzlich sparen", analysis.extraSavings)
-                    Text("Künftiges Gehalt wird nicht als vorhandenes Guthaben gerechnet. Offene Fixkosten werden mindestens bis Monatsende und bis zum Planungsende berücksichtigt. Dein Wochenlimit gilt zusätzlich.").font(.caption).foregroundStyle(.secondary)
+                    Text("Künftiges Gehalt wird nicht als vorhandenes Guthaben gerechnet. Offene Fixkosten werden mindestens bis Monatsende und bis zum Planungsende berücksichtigt. Dein Wochenlimit gilt zusätzlich.").font(.body).foregroundStyle(.secondary)
+                }
                 }
                 Section("Sparen") {
                     value("Vorsichtiger Zusatzvorschlag", analysis.additionalSavingsSuggestion)
-                    Text("Nur ein Vorschlag, keine Überweisung. Unter Spartöpfe kannst du Geld reservieren. Das reduziert den noch zusätzlich geplanten Sparbetrag, damit er nicht doppelt abgezogen wird.").font(.caption).foregroundStyle(.secondary)
+                    Text("Nur ein Vorschlag, keine Überweisung. Unter Spartöpfe kannst du Geld reservieren. Das reduziert den noch zusätzlich geplanten Sparbetrag, damit er nicht doppelt abgezogen wird.").font(.body).foregroundStyle(.secondary)
                 }
             }
         }
-        emergencySection
+        Section {
+            DisclosureGroup("Geld im Notfall", isExpanded: $emergencyOpen) { emergencyContent }
+        }
         if let message { Section { Text(message).foregroundStyle(assistMint) } }
     }
     private func value(_ title: String, _ cents: Int) -> some View {
         HStack { Text(title); Spacer(); Text(Euro.format(cents)).monospacedDigit() }
     }
-    private var emergencySection: some View {
-        Section("Notfall · ohne Kaufpause") {
+    @ViewBuilder private var emergencyContent: some View {
+        Group {
             if let id = store.budget.assistant.emergencyPotID, let pot = store.budget.pots.first(where: { $0.id == id }) {
                 value(pot.name, pot.cents)
-                TextField("Wofür brauchst du das Geld?", text: $emergencyName)
-                TextField("Betrag in €", text: $emergencyAmount).keyboardType(.decimalPad)
+                EntryField(label: "Wofür brauchst du das Geld?", text: $emergencyName)
+                EntryField(label: "Betrag in €", text: $emergencyAmount, money: true)
                 Button("Notfallausgabe jetzt erfassen") {
                     do {
                         let cents = try Euro.parse(emergencyAmount)
@@ -88,26 +94,26 @@ struct AssistantView: View {
                         if error == nil { emergencyAmount = ""; emergencyName = ""; message = "Notfall erfasst. Die Reserve wurde angepasst; prüfe deinen Sparplan zum Wiederaufbauen." }
                     } catch { self.error = error.localizedDescription }
                 }
-                Text("Erfasst die Ausgabe sofort aus deinem Notfalltopf. Keine Wartezeit, kein Kredit und keine reale Banküberweisung. Reicht die Reserve nicht, wird die Lücke angezeigt.").font(.caption).foregroundStyle(.secondary)
+                Text("Erfasst die Ausgabe sofort aus deinem Notfalltopf. Keine Wartezeit, kein Kredit und keine reale Banküberweisung. Reicht die Reserve nicht, wird die Lücke angezeigt.").font(.body).foregroundStyle(.secondary)
             } else { Text("Wähle in den Assistent-Einstellungen einen vorhandenen Spartopf als Notfallreserve."); Button("Notfalltopf wählen") { settingsOpen = true } }
         }
     }
     @ViewBuilder private var purchaseSections: some View {
         Section("Vor dem Kauf prüfen") {
-            TextField("Was möchtest du kaufen?", text: $name)
-            TextField("Preis in €", text: $amount).keyboardType(.decimalPad)
-            TextField("Händler (optional)", text: $merchant)
+            EntryField(label: "Was möchtest du kaufen?", text: $name)
+            EntryField(label: "Preis in €", text: $amount, money: true)
+            EntryField(label: "Händler (optional)", text: $merchant)
             Picker("Kategorie", selection: $category) { ForEach(["Lebensmittel", "Freizeit", "Mobilität", "Wohnen", "Sonstiges"], id: \.self) { Text($0) } }
             if let cents = try? Euro.parse(amount) {
-                if !analysis.ready { Text("Die Berechnung ist noch nicht verfügbar. Prüfe die optionalen Einstellungen und Einnahmetermine.").foregroundStyle(.orange) }
-                else if cents > analysis.purchaseLimit { Text("Der Kauf liegt \(Euro.format(cents - analysis.purchaseLimit)) über deinem Richtwert. Wünsche verschieben; bei notwendigen Ausgaben den Plan prüfen.").foregroundStyle(.orange) }
+                if !analysis.ready { Text("Die Berechnung ist noch nicht verfügbar. Prüfe die optionalen Einstellungen und Einnahmetermine.").foregroundStyle(SpielraumTheme.warning) }
+                else if cents > analysis.purchaseLimit { Text("Der Kauf liegt \(Euro.format(cents - analysis.purchaseLimit)) über deinem Richtwert. Wünsche verschieben; bei notwendigen Ausgaben den Plan prüfen.").foregroundStyle(SpielraumTheme.warning) }
                 else { Text("Nach diesem Kauf blieben nach den erfassten Planwerten \(Euro.format(analysis.purchaseLimit - cents)) für freie Wünsche.").foregroundStyle(assistMint) }
             }
             if let estimate = store.budget.necessityEstimate(merchant: merchant, category: category) {
                 Text(estimate.probability >= 0.7 ? "Aus deinen Markierungen eher notwendig – bitte selbst prüfen." : estimate.probability <= 0.3 ? "Aus deinen Markierungen eher ein Wunsch." : "Deine Markierungen sind gemischt; keine klare Einordnung.").font(.subheadline)
-                Text("\(estimate.basis) · \(estimate.samples) Beispiele. Der Händler verrät nicht, was du tatsächlich gekauft hast.").font(.caption).foregroundStyle(.secondary)
+                Text("\(estimate.basis) · \(estimate.samples) Beispiele. Der Händler verrät nicht, was du tatsächlich gekauft hast.").font(.body).foregroundStyle(.secondary)
             }
-            Button("Auf Wunschliste · 48 Stunden Kaufpause") {
+            Button("Wunsch 48 Stunden vormerken") {
                 do {
                     let cents = try Euro.parse(amount)
                     let title = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
@@ -125,28 +131,29 @@ struct AssistantView: View {
     private func wishRow(_ wish: PurchaseWish) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack { Text(wish.name).fontWeight(.semibold); Spacer(); Text(Euro.format(wish.cents)) }
-            if wish.readyAt > now { Text("Kaufpause bis \(wish.readyAt.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
-            else { Text("Kaufpause vorbei. Passt der Wunsch noch zu deinem Ziel?").font(.caption).foregroundStyle(.secondary) }
+            if wish.readyAt > now { Text("Kaufpause bis \(wish.readyAt.formatted(date: .abbreviated, time: .shortened))").font(.body).foregroundStyle(.secondary) }
+            else { Text("Kaufpause vorbei. Passt der Wunsch noch zu deinem Ziel?").font(.body).foregroundStyle(.secondary) }
             Button("Gekauft · Ausgabe erfassen") { apply { try $0.buyWish(id: wish.id, now: now) } }.disabled(wish.readyAt > now || !analysis.ready || wish.cents > analysis.purchaseLimit)
             Button("Verzichten / entfernen", role: .destructive) { apply { $0.wishes.removeAll { $0.id == wish.id } } }
         }.padding(.vertical, 5)
     }
     @ViewBuilder private var learningSections: some View {
-        Section("Was sich anpasst") {
-            Text("Deine Markierungen ändern die Einschätzung bei Händlern und Kategorien. Ab 3 Händler-Beispielen oder 5 Kategorie-Beispielen wird eine vorsichtige Wahrscheinlichkeit berechnet.")
-            Text("Für Alltagskosten nutzt der Assistent die teureren Wochen seiner erfassten Historie. Im Automatikmodus schützt er auch unmarkierte Ausgaben; mit wenig Daten verwendet er vorläufig das Wochenlimit. Er unterschreitet deinen selbst festgelegten Mindestbedarf nie und erhöht nie automatisch dein Wochenlimit.")
+        Section { DisclosureGroup("Wie lernt der Assistent?") {
+            Text("Deine Rückmeldungen verbessern die Einschätzung. Ohne Rückmeldung werden Ausgaben vorsichtig als Alltag berücksichtigt.")
+
             value("Dein Mindestbedarf / Woche", store.budget.assistant.essentialWeekly)
             value("Aktueller Ansatz / Woche", analysis.essentialWeekly)
-            Text("\(analysis.learnedWeeks) vollständige Wochen · \(analysis.learnedSamples) berücksichtigte Ausgaben im Lernfenster. Nicht eingetragene Ausgaben kennt der Assistent nicht.").font(.caption).foregroundStyle(.secondary)
+            Text("\(analysis.learnedWeeks) vollständige Wochen · \(analysis.learnedSamples) berücksichtigte Ausgaben im Lernfenster. Nicht eingetragene Ausgaben kennt der Assistent nicht.").font(.body).foregroundStyle(.secondary)
             let withdrawals = store.budget.reserveMovements.filter { $0.cents < 0 && !$0.emergency && $0.date >= now.addingTimeInterval(-30 * 86400) }
-            if !withdrawals.isEmpty { Text("\(withdrawals.count) Entnahmen aus Spartöpfen in 30 Tagen. Prüfe vor einer weiteren Entnahme Wunschliste und Sparziel.").foregroundStyle(.orange) }
+            if !withdrawals.isEmpty { Text("\(withdrawals.count) Entnahmen aus Spartöpfen in 30 Tagen. Prüfe vor einer weiteren Entnahme Wunschliste und Sparziel.").foregroundStyle(SpielraumTheme.warning) }
         }
-        Section("Deine Rückmeldung trainiert die Einordnung") {
+        }
+        Section("Ausgaben einordnen · freiwillig") {
             if store.budget.expenses.isEmpty { Text("Erfasse Ausgaben. Eine Einordnung als notwendig, Wunsch oder Notfall ist optional und verbessert die Schätzung.") }
             ForEach(store.budget.expenses.prefix(25)) { expense in
                 VStack(alignment: .leading, spacing: 5) {
                     Text("\(expense.title) · \(Euro.format(expense.cents))").fontWeight(.semibold)
-                    if let merchant = expense.merchant, !merchant.isEmpty { Text(merchant).font(.caption).foregroundStyle(.secondary) }
+                    if let merchant = expense.merchant, !merchant.isEmpty { Text(merchant).font(.body).foregroundStyle(.secondary) }
                     Picker("Einordnung", selection: Binding<ExpensePurpose?>(get: { expense.purpose }, set: { purpose in
                         apply { $0.labelExpense(id: expense.id, purpose: purpose) }
                     })) {
@@ -179,7 +186,7 @@ private struct AssistantSettingsView: View {
             Form {
                 Section {
                     Toggle("Automatisch aus meinen Einträgen", isOn: $automatic)
-                    Text("Kein Plan nötig. Einnahmetermine, Fixkosten, Spartöpfe und Ausgaben werden laufend ausgewertet. Ohne Einnahmetermin gilt ein vorläufiger Zeitraum von 30 Tagen. Mit wenig Historie bleibt das Wochenlimit für Alltag geschützt.").font(.caption)
+                    Text("Kein Plan nötig. Einnahmetermine, Fixkosten, Spartöpfe und Ausgaben werden laufend ausgewertet. Ohne Einnahmetermin gilt ein vorläufiger Zeitraum von 30 Tagen. Mit wenig Historie bleibt das Wochenlimit für Alltag geschützt.").font(.body)
                 }
                 Section("Optionale Mindestbeträge") {
                     field("Notwendiger Alltag pro Woche in €", $essential)
@@ -197,8 +204,8 @@ private struct AssistantSettingsView: View {
                     Text("Alltag umfasst notwendige variable Ausgaben wie Lebensmittel und Fahrtkosten – keine Fixkosten. Bereits reserviertes Geld in Spartöpfen nicht nochmals beim zusätzlichen Sparbetrag eintragen.")
                     Text("Im Automatikmodus aktualisiert sich die Schätzung beim Erfassen oder Ändern von Daten. Optionale Mindestbeträge bleiben geschützt. Im manuellen Modus gilt der gewählte Gehaltstag. Die App verschiebt kein Geld.")
                 }
-                if let error { Text(error).foregroundStyle(.red) }
-                Button("Einstellungen speichern") { save() }.fontWeight(.semibold)
+                if let error { Text(error).foregroundStyle(SpielraumTheme.danger) }
+                Button("Einstellungen speichern") { save() }.buttonStyle(PrimaryAction()).listRowBackground(Color.clear)
             }.navigationTitle("Assistent anpassen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
@@ -211,14 +218,9 @@ private struct AssistantSettingsView: View {
                 payday = max(a.nextPayday ?? Date().addingTimeInterval(30 * 86400), Date().addingTimeInterval(86400))
                 emergencyID = a.emergencyPotID
             }
-        }.tint(assistMint)
+        }.readableScreen()
     }
-    private func field(_ text: String, _ value: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(text).font(.subheadline)
-            TextField("0,00", text: value).keyboardType(.decimalPad).accessibilityLabel(text)
-        }
-    }
+    private func field(_ text: String, _ value: Binding<String>) -> some View { EntryField(label: text, text: value, money: true) }
     private func save() {
         do {
             let essential = try Euro.parse(essential, allowZero: true)

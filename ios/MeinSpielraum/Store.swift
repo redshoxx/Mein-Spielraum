@@ -14,6 +14,17 @@ import SwiftUI
     private var cachedAssessment: (minute: Int, zone: String, value: BudgetAssessment)?
     init() {
         let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+            disk = BudgetDiskStore(folder: FileManager.default.temporaryDirectory.appendingPathComponent("Spielraum-UI-\(UUID().uuidString)"))
+            var example = Budget.demo()
+            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+            try? example.savePayment(.init(name: "Strom", cents: 6500, kind: .fixedCost, cadence: .monthly, firstDue: tomorrow))
+            try? example.savePayment(.init(name: "Gehalt", cents: 230000, kind: .income, cadence: .monthly, firstDue: Calendar.current.date(byAdding: .day, value: 9, to: Date())!))
+            budget = example; isLoading = false
+            return
+        }
+        #endif
         disk = BudgetDiskStore(folder: folder)
         load()
     }

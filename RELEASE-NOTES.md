@@ -1,10 +1,10 @@
-Stabiler, flüssiger und besser abgesichert
+Komplett neu gestaltet: lesbar und einfacher zu bedienen
 
-- Laden und Prüfen gespeicherter Daten sowie von Backups im Hintergrund mit Ladeanzeige.
-- Formularänderungen werden im Hintergrund geprüft und gespeichert. Doppelte Speichervorgänge sind gesperrt; Erfolg erst nach erfolgreichem Schreiben.
-- Wiederverwendete Euro-Formatierer, zwischengespeicherte Budgetauswertung und schnellere Berechnung alter Zahlungstermine.
-- Ausgabenlisten laden zunächst 30 Einträge; weitere bleiben nachladbar und vollständig gespeichert.
-- Ausgaben direkt bearbeiten: Betrag, Name, Kategorie und Händler. Nur die Betragsdifferenz wird verrechnet; Notfallreserve wird passend korrigiert.
-- Zwei vorherige Speicherstände; atomare Schreibvorgänge und vollständiger iOS-Dateischutz für neue Speicherungen und Exporte.
-- Bei Ladefehlern keine leeren Ersatzdaten: geprüfte Sicherung oder externes Backup ausdrücklich wiederherstellen. Die bisherige Datei wird dabei aufbewahrt.
-- Bestehende Finanzdaten und Backups bleiben kompatibel. Gerätesicherungen bleiben zusätzlich sinnvoll, da lokale Kopien beim Löschen oder Verlust des iPhones nicht helfen.
+- Helle Oberfläche mit weißen Karten, dunkelblauer Schrift und kontrastreichen Schaltflächen in allen Bereichen.
+- Übersicht auf den freien Spielraum und die nächsten Zahlungen reduziert. Berechnungsdetails lassen sich aufklappen.
+- Haushalt mit eigenem Auswahlmenü für Einnahmen, Fixkosten, Ausgaben und Datensicherung.
+- Spartöpfe mit deutlich beschrifteten Knöpfen zum Verwalten und Bearbeiten.
+- Eingabefelder mit dauerhaft sichtbaren Beschriftungen, größere Bedienelemente und Unterstützung großer iPhone-Schrift.
+- Assistent, Kaufcheck, Kaufbremse und Benachrichtigungen auf die neue Gestaltung abgestimmt.
+- Farbkontraste automatisch geprüft; iPhone-Simulator-Prüfung für Navigation, Formulare und große Schrift ergänzt.
+- Bestehende Finanzdaten, Backups und Berechnungen bleiben erhalten.

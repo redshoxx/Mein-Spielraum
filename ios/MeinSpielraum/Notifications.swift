@@ -102,22 +102,22 @@ struct NotificationSettingsView: View {
                     }
                 }
                 Section("Woran wir dich erinnern") {
-                    Toggle("Fixkosten · am Vortag und am Termin um 9 Uhr", isOn: $notifications.paymentsEnabled)
-                    Toggle("Wunschliste · nach 48 Stunden Kaufpause", isOn: $notifications.wishesEnabled)
-                    Toggle("Täglicher Budgetcheck · 18 Uhr", isOn: $notifications.dailyEnabled)
+                    Toggle("Fixkosten um 9 Uhr", isOn: $notifications.paymentsEnabled)
+                    Toggle("Ende der Kaufpause", isOn: $notifications.wishesEnabled)
+                    Toggle("Budgetcheck um 18 Uhr", isOn: $notifications.dailyEnabled)
                 }
                 Section {
                     Button("Testmitteilung in 5 Sekunden") { testing = true; Task { await notifications.test() } }.disabled(!notifications.authorized || !notifications.enabled)
-                    if testing { Text("Test geplant. Du kannst die App kurz in den Hintergrund legen.").font(.caption) }
-                    Text("Ohne Kontostände, Händlernamen oder Beträge auf dem Sperrbildschirm. Zahlungen werden für die nächsten 45 Tage geplant, maximal 58 Einzelhinweise. Öffne die App regelmäßig, damit Änderungen berücksichtigt werden. Fokus und iOS-Einstellungen können Hinweise stummschalten.").font(.caption).foregroundStyle(.secondary)
+                    if testing { Text("Test geplant. Du kannst die App kurz in den Hintergrund legen.").font(.body) }
+                    DisclosureGroup("Zustellung und Datenschutz") { Text("Ohne Kontostände, Händlernamen oder Beträge auf dem Sperrbildschirm. Zahlungen werden für die nächsten 45 Tage geplant, maximal 58 Einzelhinweise. Öffne die App regelmäßig, damit Änderungen berücksichtigt werden. Fokus und iOS-Einstellungen können Hinweise stummschalten.").font(.body).foregroundStyle(SpielraumTheme.muted).padding(.vertical, 10) }
                 }
-                if let error = notifications.error { Section { Text(error).foregroundStyle(.orange) } }
+                if let error = notifications.error { Section { Text(error).foregroundStyle(SpielraumTheme.warning) } }
             }.navigationTitle("Benachrichtigungen").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
             .onChange(of: notifications.enabled) { notifications.refresh(budget: store.budget) }
             .onChange(of: notifications.paymentsEnabled) { notifications.refresh(budget: store.budget) }
             .onChange(of: notifications.wishesEnabled) { notifications.refresh(budget: store.budget) }
             .onChange(of: notifications.dailyEnabled) { notifications.refresh(budget: store.budget) }
-        }.tint(SpielraumTheme.mint).preferredColorScheme(.dark)
+        }.readableScreen()
     }
 }

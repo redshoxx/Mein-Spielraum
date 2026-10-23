@@ -9,6 +9,9 @@ private let secondary = SpielraumTheme.muted
 private enum Page: String, CaseIterable { case overview = "Übersicht", household = "Haushalt", pots = "Spartöpfe"
     var icon: String { switch self { case .overview: return "house"; case .household: return "doc.text"; case .pots: return "cylinder.split.1x2" } }
 }
+private enum HouseholdArea: String, CaseIterable {
+    case income = "Einnahmen", fixed = "Fixkosten", expenses = "Ausgaben", backup = "Datensicherung"
+}
 private enum Editor: Identifiable { case expense, settings, assistant, wishes, notifications, purchaseGuard, pot(UUID), editPot(UUID), editExpense(UUID), newPot, payment(PaymentKind, UUID?)
     var id: String { switch self { case .expense: return "expense"; case .settings: return "settings"; case .assistant: return "assistant"; case .wishes: return "wishes"; case .notifications: return "notifications"; case .purchaseGuard: return "purchaseGuard"; case .pot(let id): return id.uuidString; case .editPot(let id): return "edit-pot-\(id.uuidString)"; case .editExpense(let id): return "edit-expense-\(id.uuidString)"; case .newPot: return "new"; case .payment(let kind, let id): return "payment-\(kind.rawValue)-\(id?.uuidString ?? "new")" } }
 }
@@ -16,6 +19,8 @@ struct ContentView: View {
     @EnvironmentObject private var store: BudgetStore
     @EnvironmentObject private var notifications: BudgetNotifications
     @Environment(\.scenePhase) private var phase
+    @Environment(\.dynamicTypeSize) private var deviceTextSize
+    @State private var householdArea: HouseholdArea?
     @State private var page = Page.overview
     @State private var editor: Editor?
     @State private var now = Date()
@@ -47,7 +52,8 @@ struct ContentView: View {
             else if !store.budget.setupComplete { welcome }
             else { main }
         }
-        .background(canvas.ignoresSafeArea()).tint(mint)
+        .background(canvas.ignoresSafeArea()).foregroundStyle(SpielraumTheme.text).tint(mint)
+        .dynamicTypeSize(previewTextSize ?? deviceTextSize)
         .sheet(item: $editor) { entry in
             Group {
                 switch entry {
@@ -58,7 +64,7 @@ struct ContentView: View {
                 case .purchaseGuard: PurchaseGuardView()
                 default: EditorView(editor: entry)
                 }
-            }.environmentObject(store).preferredColorScheme(.dark)
+            }.environmentObject(store).preferredColorScheme(.light)
                 .disabled(store.isSaving).interactiveDismissDisabled(store.isSaving)
                 .overlay { if store.isSaving { ProgressView("Wird gespeichert …").padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
         }
@@ -125,6 +131,12 @@ struct ContentView: View {
             Button("Abbrechen", role: .cancel) { pendingImport = nil }
         }
     }
+    private var previewTextSize: DynamicTypeSize? {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--large-text") { return .accessibility2 }
+        #endif
+        return nil
+    }
     private func processPendingRoute() {
         guard !store.isLoading, !store.isSaving, !store.loadFailed else { return }
         if pendingPurchaseGuard {
@@ -137,7 +149,7 @@ struct ContentView: View {
     }
     private var recoveryView: some View {
         VStack(alignment: .leading, spacing: 22) {
-            Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle).foregroundStyle(.orange)
+            Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle).foregroundStyle(SpielraumTheme.warning)
             Text("Deine Daten bleiben erhalten").font(.title.bold())
             Text("Die aktuelle Datei konnte nicht geladen werden. Es werden keine leeren Daten darüber gespeichert.").foregroundStyle(secondary)
             if let recovery = store.recovery {
@@ -158,106 +170,88 @@ struct ContentView: View {
             Spacer()
             Button("Mit eigenen Zahlen starten") { editor = .settings }.buttonStyle(MintButton())
             Button("Mit Beispieldaten testen") { store.change { $0 = .demo() } }.frame(maxWidth: .infinity).padding(.vertical, 10)
-            Text("Keine Bankanbindung · Keine Anmeldung").font(.caption).foregroundStyle(secondary).frame(maxWidth: .infinity)
+            Text("Keine Bankanbindung · Keine Anmeldung").font(.subheadline).foregroundStyle(secondary).frame(maxWidth: .infinity)
         }.padding(24)
     }
     private var main: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 24) {
                 if page == .household {
-                    Button { page = .overview; now = Date() } label: { Label("Übersicht", systemImage: "chevron.left").frame(minHeight: 44) }.accessibilityLabel("Zurück zur Übersicht")
+                    Button {
+                        if householdArea != nil { householdArea = nil }
+                        else { page = .overview }
+                        now = Date()
+                    } label: { Label(householdArea == nil ? "Zur Übersicht" : "Zum Haushalt", systemImage: "chevron.left").font(.headline).frame(minHeight: 48) }
+                    .accessibilityIdentifier("backToOverview")
                 }
-                HStack {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("MEIN SPIELRAUM").font(.system(size: 10, weight: .bold)).tracking(2.6).foregroundStyle(mint)
-                        Text(page == .overview ? "Dein Überblick" : page.rawValue).font(.system(size: 28, weight: .bold, design: .rounded)).tracking(-0.7)
+                if page == .overview {
+                    ViewThatFits(in: .horizontal) {
+                        HStack { Text("Übersicht").font(.largeTitle.bold()); Spacer(); householdButton }
+                        VStack(alignment: .leading, spacing: 14) { Text("Übersicht").font(.largeTitle.bold()); householdButton }
                     }
-                    Spacer(minLength: 0)
-                    if page == .overview {
-                        Button { editor = .notifications } label: { Image(systemName: "bell").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Benachrichtigungen öffnen")
-                        Button { page = .household; now = Date() } label: { Image(systemName: "gearshape").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Haushalt und Einstellungen öffnen")
-                    }
-                    if page == .household { Button { editor = .settings } label: { Image(systemName: "slider.horizontal.3").font(.title3).frame(width: 44, height: 44) }.accessibilityLabel("Budget bearbeiten") }
-                }.padding(.bottom, 14)
+                } else {
+                    Text(page == .household ? householdArea?.rawValue ?? "Haushalt" : "Spartöpfe").font(.largeTitle.bold())
+                }
                 if page == .overview { overview }
                 else if page == .household { household }
                 else { savings }
-            }.padding(.horizontal, 22).padding(.top, 15).padding(.bottom, 24)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if page != .household { footer }
-        }
+            }.padding(20)
+        }.background(canvas)
+        .safeAreaInset(edge: .bottom, spacing: 0) { if page != .household { footer } }
+    }
+    private var householdButton: some View {
+        Button { householdArea = nil; page = .household; now = Date() } label: {
+            Label("Haushalt", systemImage: "gearshape").font(.body.weight(.semibold)).padding(.horizontal, 12).frame(minHeight: 50)
+                .background(SpielraumTheme.surface, in: RoundedRectangle(cornerRadius: 10))
+        }.accessibilityIdentifier("openHousehold")
     }
     private var overview: some View {
         VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 15) {
-                HStack {
-                    Label("DEIN SPIELRAUM", systemImage: "sparkle").font(.caption.weight(.bold)).tracking(1.3)
-                    Spacer()
-                    Text(weekLabel).font(.caption.weight(.medium))
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Für Wünsche übrig").font(.title3.weight(.semibold))
+                Text(Euro.format(dashboardAmount)).font(.system(.largeTitle, design: .rounded).weight(.bold)).monospacedDigit().foregroundStyle(mint)
+                    .accessibilityIdentifier("availableAmount")
+                Text("Geschätzter Spielraum nach Alltag, Fixkosten und Sparen.").font(.body).foregroundStyle(secondary)
+                if dashboardAnalysis.shortfall > 0 {
+                    Label("Aktuell ist kein freier Kauf eingeplant.", systemImage: "exclamationmark.circle").font(.body.weight(.medium)).foregroundStyle(SpielraumTheme.warning)
                 }
-                Text(Euro.format(dashboardAmount)).font(.system(size: 58, weight: .bold, design: .rounded)).tracking(-2).minimumScaleFactor(0.4).lineLimit(1)
-                Text("Richtwert für freie Wünsche").font(.headline)
-                Text(dashboardAnalysis.ready ? "Alltag, Fixkosten, Sparreserve und Puffer berücksichtigt. Eine Schätzung aus deinen Einträgen." : dashboardAnalysis.explanation).font(.caption).lineSpacing(3).opacity(0.8)
-                HStack(spacing: 6) { Image(systemName: "lock.shield"); Text("Deine Reserven bleiben geschützt") }.font(.caption.weight(.semibold))
-            }.foregroundStyle(Color(red: 0.04, green: 0.16, blue: 0.12)).padding(23).frame(maxWidth: .infinity, alignment: .leading)
-                .background(LinearGradient(colors: [mint, Color(red: 0.74, green: 0.98, blue: 0.79)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 23))
-            HStack(alignment: .top, spacing: 12) {
-                metric("Kontostand", amount: store.budget.balance, icon: "creditcard")
-                metric("In Spartöpfen", amount: store.budget.reserved, icon: "leaf")
-            }
-            Button { editor = .purchaseGuard } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "hand.raised.fill").font(.title2).foregroundStyle(mint).frame(width: 42, height: 48)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Vor dem Kaufen kurz stoppen").font(.headline).foregroundStyle(.white)
-                        Text("Preis prüfen. Wunsch vormerken. Abstand gewinnen.").font(.caption).foregroundStyle(secondary)
-                    }
-                    Spacer(minLength: 0); Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(mint)
-                }.frame(maxWidth: .infinity, alignment: .leading).budgetCard()
-            }.buttonStyle(.plain)
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Dein Geld, aufgeteilt").font(.headline)
-                ledger("Fixkosten bis Monatsende", store.budget.fixedReserve(now: now))
-                ledger("Vor Alltag und Puffer verfügbar", store.budget.available)
-                Text("Wochenlimit: \(Euro.format(store.budget.weeklyLimit)) · Wird durch Lernen nicht angehoben.").font(.caption).foregroundStyle(secondary)
-            }.budgetCard()
-            Button { editor = .assistant } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "brain.head.profile").font(.title2).foregroundStyle(mint)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Dein Budget denkt mit").font(.headline).foregroundStyle(.white)
-                        Text("Automatische Einschätzung & Kaufcheck").font(.caption).foregroundStyle(secondary)
-                    }
-                    Spacer(minLength: 0); Image(systemName: "arrow.up.right").foregroundStyle(mint)
-                }.frame(maxWidth: .infinity).budgetCard()
-            }.buttonStyle(.plain)
+                DisclosureGroup("Berechnung ansehen") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ledger("Kontostand", store.budget.balance)
+                        ledger("Spartöpfe", store.budget.reserved)
+                        ledger("Offene Fixkosten", dashboardAnalysis.fixedReserve)
+                        ledger("Alltag und Puffer", dashboardAnalysis.essentialReserve + dashboardAnalysis.buffer)
+                        if dashboardAnalysis.extraSavings > 0 { ledger("Zusätzliches Sparziel", dashboardAnalysis.extraSavings) }
+                        Text(dashboardAnalysis.explanation).font(.body).foregroundStyle(secondary)
+                    }.padding(.top, 14)
+                }.font(.body.weight(.medium))
+            }.frame(maxWidth: .infinity, alignment: .leading).budgetCard()
+            Button { editor = .wishes } label: {
+                MenuRow(title: "Kann ich mir das leisten?", detail: "Preis eingeben und vor dem Kauf prüfen", icon: "cart")
+            }.buttonStyle(.plain).budgetCard().accessibilityIdentifier("openPurchaseCheck")
             upcomingPayments.budgetCard()
-            HStack { Text("Deine Spartöpfe").font(.title2.bold()); Spacer(); Button { editor = .newPot } label: { Image(systemName: "plus").frame(width: 44, height: 44) }.accessibilityLabel("Spartopf hinzufügen") }
-            potRows
-        }.padding(.top, 8)
-    }
-    private func metric(_ title: String, amount: Int, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: icon).font(.subheadline).foregroundStyle(mint)
-            Text(title).font(.caption).foregroundStyle(secondary)
-            Text(Euro.format(amount)).font(.system(size: 22, weight: .bold, design: .rounded)).minimumScaleFactor(0.5).lineLimit(1)
-        }.frame(maxWidth: .infinity, alignment: .leading).budgetCard()
+            Button { page = .pots } label: {
+                MenuRow(title: "Meine Spartöpfe", detail: "\(Euro.format(store.budget.reserved)) zurückgelegt", icon: "banknote")
+            }.buttonStyle(.plain).budgetCard()
+            Button { editor = .assistant } label: {
+                MenuRow(title: "Budget-Assistent", detail: "Einschätzung, Sparen und Notfallreserve", icon: "chart.bar")
+            }.buttonStyle(.plain).budgetCard().accessibilityIdentifier("openAssistant")
+        }
     }
     private var upcomingPayments: some View {
         let items = store.budget.upcomingFixedPayments(now: now, calendar: calendar)
-        let visible = showAllUpcoming ? items : Array(items.prefix(4))
+        let visible = showAllUpcoming ? items : Array(items.prefix(2))
         return VStack(alignment: .leading, spacing: 17) {
             Text("Nächste Fixkosten").font(.system(size: 23, weight: .bold))
             if items.isEmpty {
                 Text("Keine offenen Zahlungstermine. Fixkosten legst du über das Zahnrad im Haushalt an.").font(.subheadline).foregroundStyle(secondary)
             } else {
-                Text("Je Posten der nächste offene Termin").font(.caption).foregroundStyle(secondary)
+                Text("Das steht als Nächstes an.").font(.body).foregroundStyle(secondary)
                 ForEach(visible) { item in upcomingRow(item) }
-                if items.count > 4 {
+                if items.count > 2 {
                     Button(showAllUpcoming ? "Weniger anzeigen" : "Alle \(items.count) anzeigen") { showAllUpcoming.toggle() }.font(.subheadline.weight(.semibold)).frame(minHeight: 44)
                 }
-                Text("Bearbeiten und als bezahlt buchen: Zahnrad → Haushalt.").font(.caption).foregroundStyle(secondary)
+                Button("Alle Fixkosten verwalten") { page = .household; householdArea = .fixed }.font(.body.weight(.semibold)).frame(minHeight: 48)
             }
         }.padding(.vertical, 23).frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .bottom) { Divider() }
@@ -265,7 +259,7 @@ struct ContentView: View {
     private func upcomingRow(_ item: UpcomingPayment) -> some View {
         let urgent = item.daysUntilDue <= 0
         return HStack(alignment: .top, spacing: 14) {
-            Image(systemName: urgent ? "exclamationmark.circle" : "calendar").font(.system(size: 20)).foregroundStyle(urgent ? Color.orange : mint).frame(width: 25).padding(.top, 2).accessibilityHidden(true)
+            Image(systemName: urgent ? "exclamationmark.circle" : "calendar").font(.system(size: 20)).foregroundStyle(urgent ? SpielraumTheme.warning : mint).frame(width: 25).padding(.top, 2).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(item.payment.name).fontWeight(.semibold).fixedSize(horizontal: false, vertical: true)
@@ -273,74 +267,102 @@ struct ContentView: View {
                     Text(Euro.format(item.payment.cents)).fontWeight(.semibold).monospacedDigit().fixedSize()
                 }
                 Text(item.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).year())).font(.subheadline).foregroundStyle(secondary)
-                Text(item.timingLabel).font(.caption.weight(.semibold)).foregroundStyle(urgent ? Color.orange : mint)
+                Text(item.timingLabel).font(.body.weight(.semibold)).foregroundStyle(urgent ? SpielraumTheme.warning : mint)
             }
         }.padding(.vertical, 5).accessibilityElement(children: .combine)
     }
     private func ledger(_ title: String, _ amount: Int) -> some View {
-        HStack { Text(title).foregroundStyle(secondary); Spacer(); Text(Euro.format(amount)).monospacedDigit() }.font(.body)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text(title).foregroundStyle(secondary); Spacer(minLength: 12)
+                Text(Euro.format(amount)).fontWeight(.semibold).monospacedDigit().fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 6) { Text(title).foregroundStyle(secondary); Text(Euro.format(amount)).fontWeight(.semibold).monospacedDigit() }
+        }.font(.body).padding(.vertical, 3)
     }
     private var potRows: some View {
-        VStack(spacing: 14) {
-            ForEach(store.budget.pots) { p in
-                HStack(spacing: 8) {
-                Button { editor = .pot(p.id) } label: {
-                    VStack(spacing: 11) {
-                        HStack { Text(p.name).fontWeight(.semibold).lineLimit(1); Spacer(); Text(Euro.format(p.cents)).fontWeight(.semibold) + Text(" / \(Euro.format(p.target))").foregroundColor(secondary) }.font(.subheadline)
-                        ProgressView(value: min(Double(p.cents), Double(p.target)), total: Double(p.target)).tint(mint).scaleEffect(x: 1, y: 1.8, anchor: .center)
-                    }.padding(.vertical, 3).contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityLabel("\(p.name), \(Euro.format(p.cents)) von \(Euro.format(p.target)). Geld verwalten.")
-                    Button { editor = .editPot(p.id) } label: {
-                        Image(systemName: "pencil").frame(width: 44, height: 44)
-                    }.accessibilityLabel("\(p.name) bearbeiten oder löschen")
-                }.budgetCard()
+        VStack(spacing: 18) {
+            ForEach(store.budget.pots) { pot in
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(pot.name).font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
+                    Text(Euro.format(pot.cents)).font(.title2.bold()).foregroundStyle(mint)
+                    Text("Ziel: \(Euro.format(pot.target))").font(.body).foregroundStyle(secondary)
+                    ProgressView(value: min(Double(pot.cents), Double(pot.target)), total: Double(pot.target)).tint(mint)
+                        .accessibilityLabel("Sparfortschritt \(pot.name)")
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) { potActions(pot) }
+                        VStack(spacing: 12) { potActions(pot) }
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading).budgetCard()
             }
         }
     }
-    private var household: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            Text("Dein Geld. Klar im Blick.").foregroundStyle(secondary)
-            Text(Euro.format(store.budget.available)).font(.system(size: 48, weight: .bold)).foregroundStyle(mint)
-            VStack(spacing: 14) { ledger("Kontostand", store.budget.balance); ledger("Fixkosten bis Monatsende", store.budget.fixedReserve(now: now)); ledger("Diese Woche ausgegeben", store.budget.weeklySpent(now: now, calendar: calendar)) }
-            Text("Offene Fixkosten bis Monatsende inklusive überfälliger Termine werden reserviert. Künftige Einnahmen sind noch nicht als verfügbares Geld gezählt.").font(.caption).foregroundStyle(secondary)
-            monthlyPlan
-            recurringSection(.income)
-            recurringSection(.fixedCost)
-            if store.budget.fixedCosts > 0 {
-                VStack(alignment: .leading, spacing: 8) {
-                    ledger("Zusätzliche Fixkostenreserve", store.budget.fixedCosts)
-                    Text("Dein bisheriger Pauschalbetrag bleibt zusätzlich erhalten. Passe ihn unter Budget bearbeiten an, wenn neue Einzelposten darin bereits enthalten sind.").font(.caption).foregroundStyle(secondary)
-                    Button("Reserve anpassen") { editor = .settings }
-                }
+    @ViewBuilder private func potActions(_ pot: SavingPot) -> some View {
+        Button("Geld verwalten") { editor = .pot(pot.id) }.buttonStyle(PrimaryAction())
+        Button("Bearbeiten") { editor = .editPot(pot.id) }.font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 54)
+            .background(SpielraumTheme.soft, in: RoundedRectangle(cornerRadius: 12))
+    }
+    @ViewBuilder private var household: some View {
+        if let area = householdArea {
+            switch area {
+            case .income: recurringSection(.income).budgetCard()
+            case .fixed: recurringSection(.fixedCost).budgetCard()
+            case .expenses: expenseHistory.budgetCard()
+            case .backup: backupSection.budgetCard()
             }
-            recurringHistory
-            Divider()
-            Text("Ausgaben").font(.title2.bold())
-            Button("Ausgabe erfassen", systemImage: "plus") { editor = .expense }
-            if store.budget.expenses.isEmpty { Text("Eine frische Woche. Erfasse deine erste Ausgabe.").foregroundStyle(secondary).padding(.vertical, 25) }
-            ForEach(Array(store.budget.expenses.prefix(expenseCount))) { e in
-                HStack {
-                    VStack(alignment: .leading, spacing: 5) { Text(e.title); Text("\(e.category) · \(e.date.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary) }
-                    Spacer(); Text("−\(Euro.format(e.cents))").fontWeight(.semibold)
-                    Menu { Button("Bearbeiten", systemImage: "pencil") { editor = .editExpense(e.id) }; Button("Rückgängig machen", systemImage: "arrow.uturn.backward") { store.change { $0.undoExpense(id: e.id) } } } label: { Image(systemName: "ellipsis").frame(width: 38, height: 44) }.accessibilityLabel("Ausgabe verwalten")
+        } else {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Was möchtest du verwalten?").font(.title3).foregroundStyle(secondary)
+                VStack(spacing: 0) {
+                    householdLink(.income, detail: "\(Euro.format(store.budget.monthlyIncome)) pro Monat", icon: "arrow.down.circle")
+                    Divider().padding(.vertical, 8)
+                    householdLink(.fixed, detail: "Zahlungstermine und laufende Kosten", icon: "calendar")
+                    Divider().padding(.vertical, 8)
+                    householdLink(.expenses, detail: "Einträge ansehen und bearbeiten", icon: "list.bullet.rectangle")
+                }.budgetCard()
+                VStack(spacing: 0) {
+                    Button { editor = .settings } label: { MenuRow(title: "Budget bearbeiten", detail: "Kontostand und Wochenlimit", icon: "slider.horizontal.3") }.buttonStyle(.plain).accessibilityIdentifier("editBudget")
+                    Divider().padding(.vertical, 8)
+                    Button { editor = .notifications } label: { MenuRow(title: "Benachrichtigungen", detail: "Erinnerungen ein- und ausschalten", icon: "bell") }.buttonStyle(.plain).accessibilityIdentifier("openNotifications")
+                    Divider().padding(.vertical, 8)
+                    householdLink(.backup, detail: "Backup erstellen oder zurückholen", icon: "externaldrive")
+                }.budgetCard()
+                DisclosureGroup("Monatliche Zusammenfassung") { monthlyPlan.padding(.top, 16) }.font(.body.weight(.medium)).budgetCard()
+                Button { editor = .purchaseGuard } label: { MenuRow(title: "Kaufbremse einrichten", detail: "Hilfe für Shopping-Apps", icon: "hand.raised") }.buttonStyle(.plain).budgetCard()
+            }
+        }
+    }
+    private func householdLink(_ area: HouseholdArea, detail: String, icon: String) -> some View {
+        Button { householdArea = area } label: { MenuRow(title: area.rawValue, detail: detail, icon: icon) }.buttonStyle(.plain).accessibilityIdentifier("household-\(area.rawValue)")
+    }
+    private var expenseHistory: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Button("Neue Ausgabe") { editor = .expense }.buttonStyle(PrimaryAction())
+            if store.budget.expenses.isEmpty { Text("Noch keine Ausgaben eingetragen.").foregroundStyle(secondary) }
+            ForEach(Array(store.budget.expenses.prefix(expenseCount))) { expense in
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(expense.title).font(.headline)
+                    Text("\(expense.category) · \(expense.date.formatted(date: .abbreviated, time: .omitted))").font(.body).foregroundStyle(secondary)
+                    Text("−\(Euro.format(expense.cents))").font(.title3.bold())
+                    HStack(spacing: 20) {
+                        Button("Bearbeiten") { editor = .editExpense(expense.id) }.frame(minHeight: 48)
+                        Menu("Weitere Aktionen") { Button("Ausgabe rückgängig machen", systemImage: "arrow.uturn.backward") { store.change { $0.undoExpense(id: expense.id) } } }.frame(minHeight: 48)
+                    }.font(.body.weight(.semibold))
                 }
                 Divider()
             }
-            if store.budget.expenses.count > expenseCount {
-                Button("Weitere 30 Ausgaben anzeigen") { expenseCount += 30 }
-                Text("\(min(expenseCount, store.budget.expenses.count)) von \(store.budget.expenses.count) Ausgaben geladen. Alle Einträge bleiben gespeichert.").font(.caption).foregroundStyle(secondary)
-            }
-            Button("Benachrichtigungen", systemImage: "bell.badge") { editor = .notifications }
-            Button("Kaufbremse & Amazon einrichten", systemImage: "hand.raised") { editor = .purchaseGuard }
-            Text("Datensicherung").font(.headline).padding(.top, 10)
-            Text("Zwei vorherige Speicherstände werden beim Ändern automatisch auf diesem iPhone gesichert. Bei einem Ladefehler kannst du einen geprüften Stand wiederherstellen. Ein externes Backup schützt zusätzlich bei Verlust oder Löschen der App.").font(.caption).foregroundStyle(secondary)
-            if let lastSaved = store.lastSaved { Text("Zuletzt gespeichert: \(lastSaved.formatted(date: .omitted, time: .standard))").font(.caption).foregroundStyle(mint) }
-            Button("Backup erstellen", systemImage: "square.and.arrow.up") {
-                do { exported = try store.exportURL() } catch { store.error = error.localizedDescription }
-            }
-            if let exported { ShareLink("Backup teilen oder in Dateien sichern", item: exported).font(.subheadline) }
-            Button("Backup wiederherstellen", systemImage: "arrow.down.doc") { importBackup = true }
-            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0") · Daten nur auf deinem Gerät").font(.caption).foregroundStyle(secondary)
+            if store.budget.expenses.count > expenseCount { Button("Weitere 30 anzeigen") { expenseCount += 30 }.frame(minHeight: 50) }
+            if !store.budget.recurringRecords.isEmpty { DisclosureGroup("Gebuchte Einnahmen und Fixkosten") { recurringHistory.padding(.top, 16) } }
+        }
+    }
+    private var backupSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Deine Einträge werden automatisch auf diesem iPhone gespeichert. Zwei vorherige Stände bleiben als lokale Sicherung erhalten.").font(.body)
+            Button("Backup erstellen") { do { exported = try store.exportURL() } catch { store.error = error.localizedDescription } }.buttonStyle(PrimaryAction())
+            if let exported { ShareLink("Backup teilen oder in Dateien speichern", item: exported).font(.headline).frame(minHeight: 52) }
+            Button("Backup aus Dateien wiederherstellen") { importBackup = true }.font(.headline).frame(minHeight: 52)
+            Text("Ein externes Backup hilft auch bei Verlust oder Löschen der App. Geteilte JSON-Dateien enthalten deine Finanzdaten.").font(.body).foregroundStyle(secondary)
+            if let lastSaved = store.lastSaved { Text("Zuletzt gespeichert: \(lastSaved.formatted(date: .omitted, time: .shortened))").font(.body).foregroundStyle(secondary) }
         }
     }
     private var monthlyPlan: some View {
@@ -349,7 +371,7 @@ struct ContentView: View {
             ledger("Einnahmen / Monat", store.budget.monthlyIncome)
             ledger("Fixkosten / Monat ca.", store.budget.monthlyFixedEquivalent)
             ledger("Nach Fixkosten ca.", store.budget.monthlyIncome - store.budget.monthlyFixedEquivalent)
-            Text("Planwerte ohne variable Ausgaben. Vierteljährliche Kosten ÷ 3, jährliche ÷ 12. Die zusätzliche Reserve ist hier nicht enthalten.").font(.caption).foregroundStyle(secondary)
+            Text("Planwerte ohne variable Ausgaben. Vierteljährliche Kosten ÷ 3, jährliche ÷ 12. Die zusätzliche Reserve ist hier nicht enthalten.").font(.subheadline).foregroundStyle(secondary)
         }
     }
     private func recurringSection(_ kind: PaymentKind) -> some View {
@@ -366,20 +388,20 @@ struct ContentView: View {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(p.name).fontWeight(.semibold)
-                            Text(p.hasPendingOccurrence() ? "\(p.cadence.title) · \(p.nextDue().formatted(date: .abbreviated, time: .omitted))" : "Abgeschlossen · alle Termine gebucht").font(.caption).foregroundStyle(secondary)
-                            if let end = p.endDate { Text("Zahlungen bis \(end.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary) }
-                            if p.kind == .fixedCost && p.cadence != .monthly && p.isActiveForPlanning(now: now) { Text("Ca. \(Euro.format(p.monthlyEquivalent)) / Monat").font(.caption).foregroundStyle(secondary) }
+                            Text(p.hasPendingOccurrence() ? "\(p.cadence.title) · \(p.nextDue().formatted(date: .abbreviated, time: .omitted))" : "Abgeschlossen · alle Termine gebucht").font(.subheadline).foregroundStyle(secondary)
+                            if let end = p.endDate { Text("Zahlungen bis \(end.formatted(date: .abbreviated, time: .omitted))").font(.subheadline).foregroundStyle(secondary) }
+                            if p.kind == .fixedCost && p.cadence != .monthly && p.isActiveForPlanning(now: now) { Text("Ca. \(Euro.format(p.monthlyEquivalent)) / Monat").font(.subheadline).foregroundStyle(secondary) }
                         }
                         Spacer(minLength: 5)
                         Text(Euro.format(p.cents)).fontWeight(.semibold).monospacedDigit()
                         Menu {
                             Button("Bearbeiten", systemImage: "pencil") { editor = .payment(kind, p.id) }
                             Button("Entfernen", systemImage: "trash", role: .destructive) { removingPayment = p }
-                        } label: { Image(systemName: "ellipsis").frame(width: 32, height: 44) }.accessibilityLabel("\(p.name) verwalten")
+                        } label: { Label("Ändern", systemImage: "ellipsis").font(.body).frame(minHeight: 48) }.accessibilityLabel("\(p.name) verwalten")
                     }
                     if p.isDue(now: now) {
                         Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") { pendingPayment = p }.font(.subheadline.weight(.semibold)).frame(minHeight: 36)
-                        Text("Termin fällig oder überfällig").font(.caption).foregroundStyle(.orange)
+                        Text("Termin fällig oder überfällig").font(.subheadline).foregroundStyle(SpielraumTheme.warning)
                     }
                 }
                 Divider()
@@ -395,14 +417,14 @@ struct ContentView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(record.name)
-                            Text("Gebucht \(record.bookedAt.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(secondary)
+                            Text("Gebucht \(record.bookedAt.formatted(date: .abbreviated, time: .omitted))").font(.subheadline).foregroundStyle(secondary)
                         }
                         Spacer()
-                        Text((record.kind == .income ? "+" : "−") + Euro.format(record.cents)).foregroundStyle(record.kind == .income ? mint : .white)
+                        Text((record.kind == .income ? "+" : "−") + Euro.format(record.cents)).foregroundStyle(record.kind == .income ? SpielraumTheme.positive : SpielraumTheme.text)
                         if store.budget.payments.contains(where: { $0.id == record.paymentID && $0.completed == record.occurrence + 1 }) {
                             Menu {
                                 Button("Buchung rückgängig machen", systemImage: "arrow.uturn.backward") { store.change { try $0.undoPayment(recordID: record.id) } }
-                            } label: { Image(systemName: "ellipsis").frame(width: 32, height: 44) }.accessibilityLabel("Buchung verwalten")
+                            } label: { Label("Ändern", systemImage: "ellipsis").font(.body).frame(minHeight: 48) }.accessibilityLabel("Buchung verwalten")
                         }
                     }
                 }
@@ -410,33 +432,36 @@ struct ContentView: View {
         }
     }
     private var savings: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            Text("Ein kleiner Beitrag heute.\nMehr Möglichkeiten morgen.").font(.title3).foregroundStyle(secondary)
+        VStack(alignment: .leading, spacing: 20) {
+            Text("\(Euro.format(store.budget.reserved)) zurückgelegt").font(.title2.bold()).foregroundStyle(mint)
+            Text("Wähle einen Topf, um Geld zurückzulegen oder freizugeben.").font(.body).foregroundStyle(secondary)
+            Button("Neuer Spartopf", systemImage: "plus") { editor = .newPot }.buttonStyle(PrimaryAction()).accessibilityIdentifier("addPot")
             potRows
-            Button("Spartopf hinzufügen", systemImage: "plus") { editor = .newPot }.padding(.vertical, 6)
-            Divider()
-            Text("\(Euro.format(store.budget.reserved)) reserviert").font(.title3.bold()).foregroundStyle(mint)
-            Text("Das Geld bleibt auf deinem Konto. Es wird einmal vom frei verfügbaren Betrag abgezogen. Tippe auf einen Topf, um Geld zu reservieren oder wieder freizugeben.").foregroundStyle(secondary).font(.subheadline)
         }
     }
     private var footer: some View {
-        VStack(spacing: 15) {
-            Button("Ausgabe erfassen") { editor = .expense }.buttonStyle(MintButton())
-            HStack {
-                ForEach([Page.overview, Page.pots], id: \.self) { p in
-                    Button { page = p; now = Date() } label: {
-                        VStack(spacing: 6) { Image(systemName: p.icon).font(.system(size: 23)); Text(p.rawValue).font(.caption) }.frame(maxWidth: .infinity).frame(minHeight: 48)
-                    }.foregroundStyle(page == p ? mint : secondary).accessibilityAddTraits(page == p ? .isSelected : [])
+        VStack(spacing: 10) {
+            Button("Ausgabe eintragen", systemImage: "plus") { editor = .expense }.buttonStyle(PrimaryAction()).accessibilityIdentifier("addExpense")
+            HStack(spacing: 12) {
+                ForEach([Page.overview, Page.pots], id: \.self) { item in
+                    Button { page = item; now = Date() } label: {
+                        Label(item.rawValue, systemImage: item.icon).font(.body.weight(page == item ? .bold : .medium))
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .foregroundStyle(page == item ? mint : secondary)
+                            .background(page == item ? SpielraumTheme.soft : SpielraumTheme.surface, in: RoundedRectangle(cornerRadius: 10))
+                    }.accessibilityIdentifier("tab-\(item.rawValue)").accessibilityAddTraits(page == item ? .isSelected : [])
                 }
             }
-        }.padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 4).background(canvas)
+        }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 6)
+            .background(SpielraumTheme.surface).overlay(alignment: .top) { Divider() }
     }
 }
 private struct MintButton: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 17, weight: .bold)).foregroundStyle(Color.black.opacity(0.9)).frame(maxWidth: .infinity).padding(.vertical, 15).background(mint.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: 14))
-    }
+    func makeBody(configuration: Configuration) -> some View { configuration.label.buttonStyle(PrimaryAction())
+        .font(.headline).foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 54).padding(.horizontal, 12)
+        .background(mint, in: RoundedRectangle(cornerRadius: 12)) }
 }
+
 private struct EditorView: View {
     let editor: Editor
     @EnvironmentObject private var store: BudgetStore
@@ -459,13 +484,13 @@ private struct EditorView: View {
             Form {
                 if case .editPot(let id) = editor {
                     Section("Name und Sparziel") {
-                        TextField("Name des Spartopfs", text: $title).accessibilityLabel("Name des Spartopfs")
+                        EntryField(label: "Name des Spartopfs", text: $title)
                         field("Sparziel in €", text: $amount)
                     }
                     if let pot = store.budget.pots.first(where: { $0.id == id }) {
                         Section {
                             LabeledContent("Bereits reserviert", value: Euro.format(pot.cents))
-                            Text("Name und Sparziel ändern den reservierten Betrag nicht. Ein Ziel unter dem bereits gesparten Betrag ist möglich.").font(.caption).foregroundStyle(secondary)
+                            Text("Name und Sparziel ändern den reservierten Betrag nicht. Ein Ziel unter dem bereits gesparten Betrag ist möglich.").font(.subheadline).foregroundStyle(secondary)
                         }
                         Section {
                             Button("Spartopf löschen", role: .destructive) { confirmDelete = true }
@@ -483,8 +508,8 @@ private struct EditorView: View {
                     Section { field(editorIsNewPot ? "Sparziel in €" : "Betrag in €", text: $amount) }
                     if editorIsExpense {
                         Section {
-                            TextField("Bezeichnung (optional)", text: $title)
-                            TextField("Händler (optional)", text: $merchant)
+                            EntryField(label: "Wofür? (optional)", text: $title)
+                            EntryField(label: "Händler (optional)", text: $merchant)
                             Picker("Einordnung fürs Lernen", selection: $purpose) {
                                 Text("Noch offen").tag(Optional<ExpensePurpose>.none)
                                 ForEach(ExpensePurpose.allCases) { Text($0.title).tag(Optional($0)) }
@@ -492,14 +517,14 @@ private struct EditorView: View {
                             .disabled(originalExpense?.fundingPotID != nil)
                             Picker("Kategorie", selection: $category) { ForEach(expenseCategories, id: \.self) { Text($0) } }
                         }
-                        if originalExpense?.fundingPotID != nil { Text("Notfallausgabe: Eine Betragskorrektur gleicht Kontostand und die noch vorhandene Notfallreserve gemeinsam ab.").font(.caption).foregroundStyle(secondary) }
-                        Text("Die Ausgabe reduziert deinen Kontostand. Fixkosten mit Termin bitte im Haushalt als bezahlt buchen, damit die Reserve gleichzeitig freigegeben wird.").font(.caption).foregroundStyle(secondary)
+                        if originalExpense?.fundingPotID != nil { Text("Notfallausgabe: Eine Betragskorrektur gleicht Kontostand und die noch vorhandene Notfallreserve gemeinsam ab.").font(.subheadline).foregroundStyle(secondary) }
+                        Text("Die Ausgabe reduziert deinen Kontostand. Fixkosten mit Termin bitte im Haushalt als bezahlt buchen, damit die Reserve gleichzeitig freigegeben wird.").font(.subheadline).foregroundStyle(secondary)
                     }
-                    if case .newPot = editor { TextField("Name des Spartopfs", text: $title) }
+                    if case .newPot = editor { EntryField(label: "Name des Spartopfs", text: $title) }
                     if case .pot = editor { Text("Frei verfügbar: \(Euro.format(store.budget.available)). Reservieren verschiebt kein Geld auf ein anderes Bankkonto.").font(.subheadline).foregroundStyle(secondary) }
                 }
-                if let validation { Text(validation).foregroundStyle(.red).accessibilityAddTraits(.isStaticText) }
-                Button("Speichern") { Task { await save() } }.fontWeight(.bold)
+                if let validation { Text(validation).foregroundStyle(SpielraumTheme.danger).accessibilityAddTraits(.isStaticText) }
+                Button("Speichern") { Task { await save() } }.buttonStyle(PrimaryAction()).listRowBackground(Color.clear).accessibilityIdentifier("saveEntry")
             }
             .navigationTitle(heading).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }; ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Fertig") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) } } }
@@ -526,7 +551,7 @@ private struct EditorView: View {
                     title = pot.name; amount = Euro.editable(pot.target)
                 }
                 if case .settings = editor { amount = Euro.editable(store.budget.balance); fixed = Euro.editable(store.budget.fixedCosts); weekly = Euro.editable(store.budget.weeklyLimit) } }
-        }.tint(mint)
+        }.readableScreen()
     }
     private var expenseCategories: [String] {
         let categories = ["Lebensmittel", "Freizeit", "Mobilität", "Wohnen", "Sonstiges"]
@@ -534,7 +559,7 @@ private struct EditorView: View {
     }
     private var editorIsExpense: Bool { switch editor { case .expense, .editExpense: return true; default: return false } }
     private var editorIsNewPot: Bool { if case .newPot = editor { return true }; return false }
-    private func field(_ label: String, text: Binding<String>) -> some View { TextField(label, text: text).keyboardType(.decimalPad).accessibilityLabel(label) }
+    private func field(_ label: String, text: Binding<String>) -> some View { EntryField(label: label, text: text, money: true) }
     private func save() async {
         do {
             let cents = try Euro.parse(amount, allowZero: { if case .settings = editor { return true }; return false }())
@@ -584,8 +609,8 @@ private struct RecurringEditor: View {
         NavigationStack {
             Form {
                 Section("\(kind == .income ? "Einnahme" : "Fixkosten")") {
-                    TextField("Name, z. B. \(kind == .income ? "Gehalt" : "Versicherung")", text: $name).accessibilityLabel("Name")
-                    TextField("Betrag je Zahlung in €", text: $amount).keyboardType(.decimalPad).accessibilityLabel("Betrag je Zahlung in Euro")
+                    EntryField(label: "Name", text: $name)
+                    EntryField(label: "Betrag je Zahlung in €", text: $amount, money: true)
                     if kind == .fixedCost {
                         Picker("Rhythmus", selection: $cadence) { ForEach(PaymentCadence.allCases) { Text($0.title).tag($0) } }
                     } else { LabeledContent("Rhythmus", value: "Monatlich") }
@@ -594,7 +619,7 @@ private struct RecurringEditor: View {
                         Toggle("Letzte Zahlung festlegen", isOn: $hasEndDate)
                         if hasEndDate {
                             DatePicker("Letzte Zahlung spätestens", selection: $endDate, in: dateRange, displayedComponents: .date)
-                            Text("Es zählen die regulären Fälligkeiten bis einschließlich dieses Datums. Danach werden keine weiteren Zahlungen eingeplant. Bereits offene Termine bleiben erhalten.").font(.caption).foregroundStyle(secondary)
+                            Text("Es zählen die regulären Fälligkeiten bis einschließlich dieses Datums. Danach werden keine weiteren Zahlungen eingeplant. Bereits offene Termine bleiben erhalten.").font(.subheadline).foregroundStyle(secondary)
                         }
                     }
                 }
@@ -602,10 +627,10 @@ private struct RecurringEditor: View {
                     Text("Wähle den nächsten noch nicht gebuchten Termin. Der Folgetermin wird nach jeder Buchung automatisch berechnet. Am 29., 30. oder 31. wird in kürzeren Monaten der letzte Tag verwendet.").font(.subheadline).foregroundStyle(secondary)
                     if kind == .income { Text("Der Kontostand steigt erst durch ‚Als erhalten buchen‘.").font(.subheadline).foregroundStyle(secondary) }
                     else { Text("Offene Termine bis Monatsende werden reserviert. ‚Als bezahlt buchen‘ verringert Kontostand und offene Reserve gleichzeitig. Nicht nochmals als normale Ausgabe erfassen.").font(.subheadline).foregroundStyle(secondary) }
-                    if existingID != nil { Text("Änderungen gelten ab dem gewählten nächsten Termin. Frühere Buchungen bleiben erhalten.").font(.caption).foregroundStyle(secondary) }
+                    if existingID != nil { Text("Änderungen gelten ab dem gewählten nächsten Termin. Frühere Buchungen bleiben erhalten.").font(.subheadline).foregroundStyle(secondary) }
                 }
-                if let validation { Text(validation).foregroundStyle(.red) }
-                Button("Speichern") { Task { await save() } }.fontWeight(.bold)
+                if let validation { Text(validation).foregroundStyle(SpielraumTheme.danger) }
+                Button("Speichern") { Task { await save() } }.buttonStyle(PrimaryAction()).listRowBackground(Color.clear).accessibilityIdentifier("saveEntry")
             }
             .navigationTitle(kind == .income ? "Monatliche Einnahme" : "Fixkosten")
             .navigationBarTitleDisplayMode(.inline)
@@ -620,7 +645,7 @@ private struct RecurringEditor: View {
                     hasEndDate = p.endDate != nil; endDate = p.endDate ?? max(Date(), p.nextDue())
                 }
             }
-        }.tint(mint)
+        }.readableScreen()
     }
     private func save() async {
         do {

@@ -43,7 +43,7 @@ def build_source(ipa: Path, repository: str, version: str) -> dict:
             'subtitle': 'Haushaltsbudget und Spartöpfe – einfach und offline',
             'localizedDescription': 'Dein Wochenbudget, deine Ausgaben und Sparziele. Lokale Speicherung auf deinem iPhone, Backup-Export und Wiederherstellung. Keine Anmeldung, keine Bankanbindung.',
             'iconURL': f'{release_url}/icon.png',
-            'tintColor': '65F3C5',
+            'tintColor': '154C96',
             'versions': [{
                 'version': version,
                 'date': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),

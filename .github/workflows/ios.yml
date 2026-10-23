@@ -24,6 +24,7 @@ jobs:
         run: |
           swift test
           python3 scripts/test_source.py
+          python3 scripts/test_design.py
       - name: Set version
         id: version
         shell: bash
@@ -36,6 +37,16 @@ jobs:
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           xcodegen generate
+      - name: Check readable iPhone screens and navigation
+        run: bash scripts/check_ios_ui.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iPhone-UI-Checks
+          path: |
+            output/UI-Tests.xcresult
+            output/screenshots
+          retention-days: 7
       - name: Build for iPhone (SideStore signs at installation)
         env:
           APP_VERSION: ${{ steps.version.outputs.value }}
@@ -65,6 +76,7 @@ jobs:
             output/source.json
             output/icon.png
             output/SHA256SUMS.txt
+            output/UI-Screenshots.zip
           retention-days: 14
       - name: Publish release and updated SideStore source
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -84,6 +96,6 @@ jobs:
             gh release create "$tag" --target "$GITHUB_SHA" --draft \
               --title "Mein Spielraum ${APP_VERSION}" --notes-file RELEASE-NOTES.md
           fi
-          gh release upload "$tag" output/Mein-Spielraum.ipa output/source.json output/icon.png output/SHA256SUMS.txt --clobber
+          gh release upload "$tag" output/Mein-Spielraum.ipa output/source.json output/icon.png output/SHA256SUMS.txt output/UI-Screenshots.zip --clobber
           gh release edit "$tag" --draft=false --latest
           printf 'SideStore-Source: https://github.com/%s/releases/latest/download/source.json\n' "$GITHUB_REPOSITORY" >> "$GITHUB_STEP_SUMMARY"
