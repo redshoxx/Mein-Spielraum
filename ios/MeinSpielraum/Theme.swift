@@ -31,7 +31,7 @@ extension View {
 }
 struct PrimaryAction: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.headline).multilineTextAlignment(.center)
+        configuration.label.font(.headline).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 54)
             .padding(.horizontal, 14).padding(.vertical, 4)
             .background(configuration.isPressed ? SpielraumTheme.text : SpielraumTheme.mint, in: RoundedRectangle(cornerRadius: 12))
@@ -46,8 +46,8 @@ struct MenuRow: View {
             Image(systemName: icon).font(.title3.weight(.semibold)).foregroundStyle(SpielraumTheme.mint)
                 .frame(width: 42, height: 46).background(SpielraumTheme.soft, in: RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 5) {
-                Text(title).font(.headline).foregroundStyle(SpielraumTheme.text)
-                if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(SpielraumTheme.muted) }
+                Text(title).font(.headline).foregroundStyle(SpielraumTheme.text).fixedSize(horizontal: false, vertical: true)
+                if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(SpielraumTheme.muted).fixedSize(horizontal: false, vertical: true) }
             }
             Spacer(minLength: 8)
             Image(systemName: "chevron.right").font(.body.weight(.semibold)).foregroundStyle(SpielraumTheme.muted)

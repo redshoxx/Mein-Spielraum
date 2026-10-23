@@ -146,6 +146,7 @@ struct ContentView: View {
             Button("Abbrechen", role: .cancel) { pendingImport = nil }
         }
     }
+    private var largeText: Bool { (previewTextSize ?? deviceTextSize).isAccessibilitySize }
     private var previewTextSize: DynamicTypeSize? {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--large-text") { return .accessibility2 }
@@ -226,7 +227,7 @@ struct ContentView: View {
                 Text("Für Wünsche übrig").font(.title3.weight(.semibold))
                 Text(Euro.format(dashboardAmount)).font(.system(.largeTitle, design: .rounded).weight(.bold)).monospacedDigit().foregroundStyle(mint)
                     .accessibilityIdentifier("availableAmount")
-                Text("Geschätzter Spielraum nach Alltag, Fixkosten und Sparen.").font(.body).foregroundStyle(secondary)
+                Text("Nach Alltag, Fixkosten und Sparen.").font(.body).foregroundStyle(secondary).fixedSize(horizontal: false, vertical: true)
                 if dashboardAnalysis.shortfall > 0 {
                     Label("Aktuell ist kein freier Kauf eingeplant.", systemImage: "exclamationmark.circle").font(.body.weight(.medium)).foregroundStyle(SpielraumTheme.warning)
                 }
@@ -406,7 +407,7 @@ struct ContentView: View {
                         Menu("Weitere Aktionen") { Button("Entfernen", systemImage: "trash", role: .destructive) { removingPayment = p } }.frame(minHeight: 52)
                     }.font(.body.weight(.semibold))
                     if p.isDue(now: now) {
-                        Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") { pendingPayment = p }.font(.subheadline.weight(.semibold)).frame(minHeight: 36)
+                        Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") { pendingPayment = p }.font(.body.weight(.semibold)).frame(minHeight: 54)
                         Text("Termin fällig oder überfällig").font(.subheadline).foregroundStyle(SpielraumTheme.warning)
                     }
                 }
@@ -446,13 +447,17 @@ struct ContentView: View {
     }
     private var footer: some View {
         VStack(spacing: 10) {
-            Button("Ausgabe eintragen", systemImage: "plus") { editor = .expense }.buttonStyle(PrimaryAction()).accessibilityIdentifier("addExpense")
+            Button(largeText ? "Ausgabe" : "Ausgabe eintragen", systemImage: "plus") { editor = .expense }.buttonStyle(PrimaryAction()).accessibilityIdentifier("addExpense").accessibilityLabel("Ausgabe eintragen")
             HStack(spacing: 12) {
                 ForEach([Page.overview, Page.pots], id: \.self) { item in
                     Button { page = item; now = Date() } label: {
-                        Label(item.rawValue, systemImage: item.icon).font(.body.weight(page == item ? .bold : .medium))
-                            .frame(maxWidth: .infinity, minHeight: 52)
+                        VStack(spacing: 6) {
+                            Image(systemName: item.icon)
+                            Text(largeText ? (item == .overview ? "Start" : "Sparen") : item.rawValue).fixedSize(horizontal: false, vertical: true)
+                        }.font(.body.weight(page == item ? .bold : .medium))
+                            .frame(maxWidth: .infinity, minHeight: 56)
                             .foregroundStyle(page == item ? mint : secondary)
+                            .padding(.vertical, 6)
                             .background(page == item ? SpielraumTheme.soft : SpielraumTheme.surface, in: RoundedRectangle(cornerRadius: 10))
                     }.accessibilityIdentifier("tab-\(item.rawValue)").accessibilityAddTraits(page == item ? .isSelected : [])
                 }
@@ -509,7 +514,7 @@ private struct EditorView: View {
                     }
                     Section { Text("Alle Spartöpfe sind Teil dieses Kontostands. Änderungen gleichen deinen aktuellen Stand ab. Einzelne Fixkosten mit Termin werden zusätzlich reserviert. Bereits darin enthaltene Beträge aus der zusätzlichen Reserve herausnehmen.").foregroundStyle(secondary) }
                 } else {
-                    if case .pot = editor { Picker("Aktion", selection: $release) { Text("Reservieren").tag(false); Text("Freigeben").tag(true) }.pickerStyle(.segmented) }
+                    if case .pot = editor { Picker("Aktion", selection: $release) { Text("Reservieren").tag(false); Text("Freigeben").tag(true) }.pickerStyle(.menu) }
                     Section { field(editorIsNewPot ? "Sparziel in €" : "Betrag in €", text: $amount) }
                     if editorIsExpense {
                         Section {

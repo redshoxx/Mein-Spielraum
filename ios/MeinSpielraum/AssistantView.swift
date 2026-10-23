@@ -6,6 +6,7 @@ private let assistMint = SpielraumTheme.mint
 struct AssistantView: View {
     @EnvironmentObject private var store: BudgetStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var textSize
     @State private var tab: Int
     init(initialTab: Int = 0) { _tab = State(initialValue: initialTab) }
     @State private var settingsOpen = false
@@ -24,7 +25,7 @@ struct AssistantView: View {
     var body: some View {
         NavigationStack {
             List {
-                Picker("Bereich", selection: $tab) { Text("Überblick").tag(0); Text("Kaufcheck").tag(1); Text("Einträge").tag(2) }.pickerStyle(.segmented)
+                sectionTabs
                 if tab == 0 { planSections }
                 else if tab == 1 { purchaseSections }
                 else { learningSections }
@@ -43,6 +44,23 @@ struct AssistantView: View {
             .onReceive(timer) { now = $0 }
         }.readableScreen()
     }
+    private var sectionTabs: some View {
+        Group {
+            if textSize.isAccessibilitySize { VStack(spacing: 10) { tabButtons } }
+            else { HStack(spacing: 8) { tabButtons } }
+        }.listRowBackground(Color.clear).listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+    }
+    @ViewBuilder private var tabButtons: some View {
+        ForEach(0..<3) { index in
+            Button { tab = index } label: {
+                Text(["Überblick", "Kaufcheck", "Einträge"][index]).font(.body.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 52).padding(.horizontal, 6)
+                    .foregroundStyle(tab == index ? Color.white : SpielraumTheme.text)
+                    .background(tab == index ? SpielraumTheme.mint : SpielraumTheme.soft, in: RoundedRectangle(cornerRadius: 10))
+            }.buttonStyle(.plain).accessibilityAddTraits(tab == index ? .isSelected : [])
+        }
+    }
     @ViewBuilder private var planSections: some View {
         if !store.budget.assistant.usesAutomatic && !store.budget.assistant.configured {
             Section("Zuerst dein Plan") {
@@ -51,7 +69,7 @@ struct AssistantView: View {
             }
         } else {
             Section("Richtwert für freie Wünsche") {
-                Text(Euro.format(analysis.purchaseLimit)).font(.system(size: 36, weight: .bold)).foregroundStyle(assistMint)
+                Text(Euro.format(analysis.purchaseLimit)).font(.largeTitle.bold()).foregroundStyle(assistMint)
                 DisclosureGroup("Warum dieser Betrag?") { Text(analysis.explanation).font(.body).foregroundStyle(SpielraumTheme.muted).padding(.vertical, 10) }
                 if let payday = analysis.payday { Text("Planungsende \(payday.formatted(date: .abbreviated, time: .omitted)) · \(analysis.days) Tage") }
                 if !analysis.ready { Button("Gehaltstag prüfen") { settingsOpen = true } }
