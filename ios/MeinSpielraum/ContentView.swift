@@ -45,7 +45,7 @@ struct ContentView: View {
         let f = DateFormatter(); f.locale = Locale(identifier: "de_AT"); f.dateFormat = "d. MMM"
         return "\(f.string(from: range.start))–\(f.string(from: end))"
     }
-    var body: some View {
+    private var baseScreen: some View {
         Group {
             if store.isLoading { ProgressView("Daten werden sicher geladen …").frame(maxWidth: .infinity, maxHeight: .infinity) }
             else if store.loadFailed { recoveryView }
@@ -54,6 +54,9 @@ struct ContentView: View {
         }
         .background(canvas.ignoresSafeArea()).foregroundStyle(SpielraumTheme.text).tint(mint)
         .dynamicTypeSize(previewTextSize ?? deviceTextSize)
+    }
+    private var presentedScreen: some View {
+        baseScreen
         .sheet(item: $editor) { entry in
             Group {
                 switch entry {
@@ -68,6 +71,9 @@ struct ContentView: View {
                 .disabled(store.isSaving).interactiveDismissDisabled(store.isSaving)
                 .overlay { if store.isSaving { ProgressView("Wird gespeichert …").padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
         }
+    }
+    private var lifecycleScreen: some View {
+        presentedScreen
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in if store.loadFailed { store.load() } }
         .onChange(of: store.isLoading) { if !store.isLoading && !store.loadFailed { notifications.refresh(budget: store.budget); processPendingRoute() } }
         .onChange(of: store.isSaving) { if !store.isSaving { processPendingRoute() } }
@@ -75,6 +81,9 @@ struct ContentView: View {
             Button("Sicherung wiederherstellen") { store.restoreRecovery() }
             Button("Abbrechen", role: .cancel) {}
         } message: { Text("Es wird der angezeigte frühere Stand geladen. Spätere Änderungen können darin fehlen. Die bisherige Speicherdatei wird zur Sicherheit aufbewahrt.") }
+    }
+    private var liveScreen: some View {
+        lifecycleScreen
         .allowsHitTesting(!isImporting && !store.isSaving)
         .overlay { if isImporting { ProgressView("Backup wird geprüft …").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) } }
         .onReceive(dayTimer) { now = $0 }
@@ -86,6 +95,9 @@ struct ContentView: View {
             }
         }
         .onReceive(notifications.$route.compactMap { $0 }) { _ in processPendingRoute() }
+    }
+    private var paymentScreen: some View {
+        liveScreen
         .confirmationDialog("Termin buchen?", isPresented: Binding(get: { pendingPayment != nil }, set: { if !$0 { pendingPayment = nil } }), titleVisibility: .visible) {
             if let p = pendingPayment {
                 Button(p.kind == .income ? "Als erhalten buchen" : "Als bezahlt buchen") {
@@ -107,6 +119,9 @@ struct ContentView: View {
             Button("OK", role: .cancel) { store.error = nil }
         } message: { Text(store.error ?? "") }
         .onChange(of: phase) { _, value in if value == .active { now = Date(); if !store.loadFailed && !store.isLoading { notifications.refresh(budget: store.budget) } } }
+    }
+    var body: some View {
+        paymentScreen
         .fileImporter(isPresented: $importBackup, allowedContentTypes: [.json]) { result in
             do {
                 let url = try result.get()
